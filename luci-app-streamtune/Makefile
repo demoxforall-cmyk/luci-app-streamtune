@@ -8,7 +8,7 @@ LUCI_TITLE:=Stream Optimizer — tune network stack for low-latency audio stream
 # (форма без '+', версия >=0): при ОНЛАЙН-установке `apk add` сам докачает их из
 # репозитория ImmortalWRT и они НЕ требуют сборки в SDK.
 LUCI_DEPENDS:=+luci-base
-LUCI_EXTRA_DEPENDS:=kmod-tcp-bbr, irqbalance
+LUCI_EXTRA_DEPENDS:=kmod-tcp-bbr (>=0), irqbalance (>=0)
 LUCI_PKGARCH:=all
 PKG_VERSION:=1.0
 PKG_LICENSE:=GPL-2.0
