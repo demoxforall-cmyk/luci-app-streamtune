@@ -1,0 +1,14 @@
+config streamtune 'global'
+	# безопасный профиль включён по умолчанию
+	option net_buffers '1'
+	option low_latency '1'
+	option backlog '1'
+	option conntrack '1'
+	option flow_offload '1'
+	# опциональные/рискованные — выключены по умолчанию
+	option flow_offload_hw '0'
+	option congestion '0'
+	option irqbalance '0'
+	option disable_ipv6 '0'
+	# целевой размер хэш-таблицы conntrack
+	option hashsize '16384'

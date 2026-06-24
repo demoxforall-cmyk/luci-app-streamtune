@@ -1,0 +1,56 @@
+#!/bin/sh
+# rpcd-бэкенд для luci-app-streamtune.
+# SPDX-License-Identifier: GPL-2.0
+#
+# Тонкий мост ubus<->shell: get_status/get_boot отдают JSON автономных скриптов
+# (detect.sh/boot.sh), apply пишет тумблеры в UCI и запускает apply.sh, revert —
+# откат. Реестр параметров и логика — в /usr/share/streamtune/.
+. /usr/share/libubox/jshn.sh
+
+ST_SHARE="${ST_SHARE:-/usr/share/streamtune}"
+
+ensure_cfg() {
+	uci -q get streamtune.global >/dev/null 2>&1 || {
+		uci set streamtune.global=streamtune
+		uci commit streamtune
+	}
+}
+
+case "$1" in
+	list)
+		cat <<JSON
+{ "get_status":{}, "get_boot":{},
+  "apply":{ "net_buffers":"", "low_latency":"", "backlog":"", "congestion":"",
+            "flow_offload":"", "flow_offload_hw":"", "conntrack":"", "irqbalance":"",
+            "disable_ipv6":"" },
+  "revert":{} }
+JSON
+		;;
+	call)
+		case "$2" in
+			get_status)
+				# полный статус всех параметров + оценка здоровья
+				sh "$ST_SHARE/detect.sh" ;;
+			get_boot)
+				# таймлайн загрузки + сведения о системе
+				sh "$ST_SHARE/boot.sh" ;;
+			apply)
+				read -r input
+				json_load "$input"
+				ensure_cfg
+				for opt in net_buffers low_latency backlog congestion \
+				           flow_offload flow_offload_hw conntrack irqbalance disable_ipv6; do
+					json_get_var v "$opt"
+					case "$v" in
+						0|1) uci set "streamtune.global.$opt=$v" ;;
+					esac
+				done
+				uci commit streamtune
+				sh "$ST_SHARE/apply.sh" apply ;;
+			revert)
+				sh "$ST_SHARE/apply.sh" revert ;;
+			*)
+				echo '{"error":"not_implemented"}' ;;
+		esac
+		;;
+esac

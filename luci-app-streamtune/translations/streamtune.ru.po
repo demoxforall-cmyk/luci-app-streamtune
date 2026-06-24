@@ -1,0 +1,286 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: luci-app-streamtune\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: ru\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+# ---- категории ----
+msgid "Network buffers (TCP/UDP)"
+msgstr "Сетевые буферы (TCP/UDP)"
+
+msgid "Larger socket buffers reduce packet drops at high bitrate — fewer rebuffering events while streaming."
+msgstr "Большие буферы сокетов снижают потери пакетов на высоком битрейте — меньше перебуферизаций при стриминге."
+
+msgid "Low-latency TCP"
+msgstr "TCP с низкой задержкой"
+
+msgid "Keep long streaming sessions fast: no slow-start after idle pauses, quicker socket reuse."
+msgstr "Держит длинные сессии стриминга быстрыми: без замедления после пауз, быстрее переиспользование сокетов."
+
+msgid "Queues & backlog"
+msgstr "Очереди и backlog"
+
+msgid "Absorb traffic bursts without dropping packets (device backlog and NAPI budget)."
+msgstr "Поглощает всплески трафика без потери пакетов (backlog устройства и бюджет NAPI)."
+
+msgid "Congestion control (BBR + fq)"
+msgstr "Управление перегрузкой (BBR + fq)"
+
+msgid "BBR with fair queueing fights bufferbloat and keeps latency low under load."
+msgstr "BBR с честной очередью борется с bufferbloat и удерживает низкую задержку под нагрузкой."
+
+msgid "Flow offloading"
+msgstr "Разгрузка потоков (offload)"
+
+msgid "Offload NAT (software, and hardware on supported SoCs) to cut CPU load and jitter."
+msgstr "Выгрузка NAT (программно, и аппаратно на поддерживаемых SoC) для снижения нагрузки CPU и джиттера."
+
+msgid "Connection tracking"
+msgstr "Отслеживание соединений (conntrack)"
+
+msgid "A bigger conntrack hash table speeds up lookups when there are many connections."
+msgstr "Большая хэш-таблица conntrack ускоряет поиск при множестве соединений."
+
+msgid "IRQ balancing"
+msgstr "Балансировка прерываний (IRQ)"
+
+msgid "Spread network interrupts across CPU cores to smooth out load spikes."
+msgstr "Распределяет сетевые прерывания по ядрам CPU, сглаживая пики нагрузки."
+
+msgid "Disable IPv6"
+msgstr "Отключить IPv6"
+
+msgid "Removes the RA/DHCPv6 handshake — faster boot and less jitter. Enable only if you do not use IPv6."
+msgstr "Убирает RA/DHCPv6-handshake — быстрее загрузка и меньше джиттера. Включайте только если IPv6 не нужен."
+
+# ---- метки параметров ----
+msgid "Software offload"
+msgstr "Программный offload"
+
+msgid "Hardware offload"
+msgstr "Аппаратный offload"
+
+msgid "conntrack hashsize"
+msgstr "размер хэша conntrack"
+
+msgid "irqbalance service"
+msgstr "служба irqbalance"
+
+# ---- подсказки по параметрам ----
+msgid "Maximum socket receive buffer size."
+msgstr "Максимальный размер буфера приёма сокета."
+
+msgid "Maximum socket send buffer size."
+msgstr "Максимальный размер буфера отправки сокета."
+
+msgid "Default socket receive buffer size."
+msgstr "Размер буфера приёма сокета по умолчанию."
+
+msgid "Default socket send buffer size."
+msgstr "Размер буфера отправки сокета по умолчанию."
+
+msgid "Maximum ancillary buffer size per socket."
+msgstr "Максимальный размер служебного буфера на сокет."
+
+msgid "TCP receive auto-tuning limits: min / default / max."
+msgstr "Пределы авто-тюнинга приёма TCP: мин / по умолчанию / макс."
+
+msgid "TCP send auto-tuning limits: min / default / max."
+msgstr "Пределы авто-тюнинга отправки TCP: мин / по умолчанию / макс."
+
+msgid "Minimum UDP receive buffer guaranteed per socket."
+msgstr "Минимальный гарантированный буфер приёма UDP на сокет."
+
+msgid "Minimum UDP send buffer guaranteed per socket."
+msgstr "Минимальный гарантированный буфер отправки UDP на сокет."
+
+msgid "0 = do not slow a connection after an idle pause — critical for streaming."
+msgstr "0 = не замедлять соединение после паузы простоя — критично для стриминга."
+
+msgid "Reuse TIME_WAIT sockets for new outgoing connections."
+msgstr "Переиспользовать сокеты TIME_WAIT для новых исходящих соединений."
+
+msgid "Seconds to keep a socket in FIN-WAIT-2."
+msgstr "Сколько секунд держать сокет в FIN-WAIT-2."
+
+msgid "Queue of half-open connections awaiting ACK."
+msgstr "Очередь полуоткрытых соединений в ожидании ACK."
+
+msgid "Maximum number of TIME_WAIT sockets."
+msgstr "Максимальное число сокетов TIME_WAIT."
+
+msgid "Packets queued when an interface delivers faster than the kernel handles."
+msgstr "Очередь пакетов, когда интерфейс отдаёт быстрее, чем ядро обрабатывает."
+
+msgid "Packets processed per NAPI poll cycle."
+msgstr "Пакетов за один цикл опроса NAPI."
+
+msgid "Congestion control algorithm; bbr is recommended for streaming."
+msgstr "Алгоритм управления перегрузкой; для стриминга рекомендуется bbr."
+
+msgid "Default queueing discipline; fq pairs with BBR."
+msgstr "Дисциплина очереди по умолчанию; fq в паре с BBR."
+
+msgid "Software flow offloading in the firewall."
+msgstr "Программная разгрузка потоков в межсетевом экране."
+
+msgid "Hardware NAT offloading (requires a supported SoC)."
+msgstr "Аппаратная разгрузка NAT (нужен поддерживаемый SoC)."
+
+msgid "Number of buckets in the conntrack hash table."
+msgstr "Число корзин в хэш-таблице conntrack."
+
+msgid "irqbalance daemon that distributes IRQs across cores."
+msgstr "Демон irqbalance, распределяющий IRQ по ядрам."
+
+msgid "Disable IPv6 on all interfaces."
+msgstr "Отключить IPv6 на всех интерфейсах."
+
+msgid "Disable IPv6 on the default interface template."
+msgstr "Отключить IPv6 в шаблоне интерфейса по умолчанию."
+
+# ---- статусы ----
+msgid "Applied"
+msgstr "Применено"
+
+msgid "Not applied"
+msgstr "Не применено"
+
+msgid "Unavailable"
+msgstr "Недоступно"
+
+msgid "Off"
+msgstr "Выключено"
+
+msgid "running"
+msgstr "работает"
+
+msgid "stopped"
+msgstr "остановлен"
+
+msgid "not installed"
+msgstr "не установлен"
+
+# ---- overview ----
+msgid "Requires package %s — it will be pulled in automatically on online install, or install it manually."
+msgstr "Нужен пакет %s — он подтянется автоматически при онлайн-установке, либо установите вручную."
+
+msgid "Stream Optimizer"
+msgstr "Оптимизатор стриминга"
+
+msgid "Tune the network stack for low-latency, low-jitter audio/video streaming. Review each parameter, pick a profile and apply."
+msgstr "Настройка сетевого стека под аудио-/видео-стриминг с низкой задержкой и джиттером. Просмотрите параметры, выберите профиль и примените."
+
+msgid "Apply selected"
+msgstr "Применить выбранное"
+
+msgid "Recommended preset"
+msgstr "Рекомендуемый профиль"
+
+msgid "Revert all"
+msgstr "Сбросить всё"
+
+msgid "optional"
+msgstr "опционально"
+
+msgid "risky"
+msgstr "риск"
+
+msgid "Enable hardware NAT offloading"
+msgstr "Включить аппаратную разгрузку NAT"
+
+msgid "(hardware offload not detected on this device)"
+msgstr "(аппаратный offload на этом устройстве не обнаружен)"
+
+msgid "Parameter"
+msgstr "Параметр"
+
+msgid "Recommended"
+msgstr "Рекомендовано"
+
+msgid "Current"
+msgstr "Текущее"
+
+msgid "Status"
+msgstr "Статус"
+
+msgid "%d of %d enabled optimizations applied"
+msgstr "Применено %d из %d включённых оптимизаций"
+
+msgid "All set"
+msgstr "Всё применено"
+
+msgid "Optimizations applied."
+msgstr "Оптимизации применены."
+
+msgid "Apply failed."
+msgstr "Не удалось применить."
+
+msgid "Applied with notes: %s"
+msgstr "Применено с замечаниями: %s"
+
+msgid "Recommended profile selected. Press “Apply selected” to activate."
+msgstr "Выбран рекомендуемый профиль. Нажмите «Применить выбранное», чтобы активировать."
+
+msgid "Revert all StreamTune optimizations and reset all toggles?"
+msgstr "Сбросить все оптимизации StreamTune и обнулить все переключатели?"
+
+msgid "Reverted. Buffer-size sysctls return to defaults after reboot."
+msgstr "Сброшено. Sysctl-буферы вернутся к значениям по умолчанию после перезагрузки."
+
+# ---- diagnostics ----
+msgid "MB"
+msgstr "МБ"
+
+msgid "Further optimization ideas"
+msgstr "Идеи для дальнейшей оптимизации"
+
+msgid "Device-specific tweaks that StreamTune does not apply automatically."
+msgstr "Зависящие от устройства настройки, которые StreamTune не применяет автоматически."
+
+msgid "Trim unused kernel modules from /etc/modules.d/* to shorten boot time."
+msgstr "Уберите неиспользуемые модули ядра из /etc/modules.d/*, чтобы сократить время загрузки."
+
+msgid "On slow WAN links, install luci-app-sqm (CAKE/fq_codel) to fight bufferbloat — needs your real up/down speeds."
+msgstr "На медленных WAN-линках установите luci-app-sqm (CAKE/fq_codel) против bufferbloat — нужны реальные скорости вверх/вниз."
+
+msgid "Empty PCIe slots can add multi-second probe timeouts at boot; this usually requires a device-tree (DTS) change."
+msgstr "Пустые слоты PCIe могут добавлять многосекундные таймауты при загрузке; обычно это требует правки device-tree (DTS)."
+
+msgid "Keep the LTE/5G modem on IPv4-only if your operator does not need IPv6 — avoids extra session setup delay."
+msgstr "Держите LTE/5G-модем только на IPv4, если оператору не нужен IPv6 — это убирает лишнюю задержку установки сессии."
+
+msgid "Boot log (dmesg) is not available on this device."
+msgstr "Журнал загрузки (dmesg) недоступен на этом устройстве."
+
+msgid "s to userspace"
+msgstr "с до userspace"
+
+msgid "s"
+msgstr "с"
+
+msgid "Boot timeline"
+msgstr "Хронология загрузки"
+
+msgid "Kernel milestones parsed from dmesg."
+msgstr "Этапы ядра, разобранные из dmesg."
+
+msgid "System"
+msgstr "Система"
+
+msgid "Resources relevant to network load."
+msgstr "Ресурсы, важные для сетевой нагрузки."
+
+msgid "CPU cores"
+msgstr "Ядра CPU"
+
+msgid "RAM total"
+msgstr "Всего ОЗУ"
+
+msgid "RAM available"
+msgstr "Доступно ОЗУ"
+
+msgid "Tracked connections"
+msgstr "Отслеживаемые соединения"

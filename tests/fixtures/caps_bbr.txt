@@ -1,0 +1,3 @@
+bbr=1
+irqbalance=1
+hw_offload=1

@@ -1,0 +1,9 @@
+[    0.000000] Linux version 6.12.87 (builder@host) (gcc 14.3.0) #0 SMP
+[    0.512345] Memory: 3987654K/4194304K available
+[    1.234567] Freeing unused kernel image memory: 2048K
+[    1.456789] Run /etc/preinit as init process
+[    2.011223] procd: - early -
+[    3.345678] mount_root: loading kmods
+[    4.567890] UBIFS (ubi0:0): mounted
+[   12.890123] br-lan: port 1(lan1) entered forwarding state
+[   13.001100] eth0 Link is Up - 1Gbps/Full

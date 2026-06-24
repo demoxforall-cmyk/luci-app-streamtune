@@ -1,0 +1,30 @@
+#!/bin/sh /etc/rc.common
+# streamtune — восстановление непостоянных настроек на загрузке.
+# SPDX-License-Identifier: GPL-2.0
+#
+# Большинство оптимизаций персистят сами: sysctl-параметры — через
+# /etc/sysctl.d/99-streamtune.conf (применяет системный sysctl на boot);
+# flow offload — через UCI firewall; irqbalance — через enable сервиса.
+# Здесь восстанавливаем только то, что НЕ персистит: размер хэш-таблицы
+# conntrack (параметр модуля в sysfs). Делаем минимум, чтобы не замедлять boot.
+START=99
+STOP=10
+USE_PROCD=1
+
+ST_SHARE=/usr/share/streamtune
+
+start_service() {
+	[ -r "$ST_SHARE/lib.sh" ] || return 0
+	. "$ST_SHARE/lib.sh"
+	if [ "$(st_cfg conntrack 1)" = "1" ] && [ -w "$ST_SYSFS_HASHSIZE" ]; then
+		echo "$(st_hashsize)" > "$ST_SYSFS_HASHSIZE" 2>/dev/null
+	fi
+	procd_open_instance
+	procd_set_param command /bin/true
+	procd_close_instance
+}
+
+# Полное переприменение профиля (отладка / после ручной правки конфига).
+reload_service() {
+	sh "$ST_SHARE/apply.sh" apply >/dev/null 2>&1
+}

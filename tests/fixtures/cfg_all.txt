@@ -1,0 +1,9 @@
+net_buffers=1
+low_latency=1
+backlog=1
+congestion=1
+flow_offload=1
+flow_offload_hw=1
+conntrack=1
+irqbalance=1
+disable_ipv6=1

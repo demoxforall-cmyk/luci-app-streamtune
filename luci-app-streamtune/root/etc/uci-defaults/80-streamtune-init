@@ -1,0 +1,6 @@
+#!/bin/sh
+# Включаем службу streamtune (восстановление conntrack hashsize на загрузке).
+# Сам конфиг ставится файлом /etc/config/streamtune. Оптимизации НЕ применяются
+# автоматически — пользователь нажимает «Применить» в LuCI.
+[ -x /etc/init.d/streamtune ] && /etc/init.d/streamtune enable 2>/dev/null
+exit 0

@@ -1,0 +1,61 @@
+# streamtune — парсер dmesg в таймлайн загрузки (JSON).
+# SPDX-License-Identifier: GPL-2.0
+# Совместимо с BusyBox awk (без gensub/asort).
+# Вход: вывод `dmesg` (строки вида "[   12.345678] ...").
+# Выход: {"available":bool,"total":sec,"events":[{"t":sec,"label":..,"line":..}]}
+
+BEGIN {
+	NM = 0; maxt = 0
+	add("Linux version",                                  "Kernel start")
+	add("Memory:",                                        "Memory init")
+	add("Freeing unused kernel",                          "Kernel ready (init handover)")
+	add("Run /sbin/init|Run /etc/preinit",                "Userspace start")
+	add("procd",                                          "procd start")
+	add("mount_root|overlayfs|jffs2|UBIFS|F2FS|EXT4-fs",  "Rootfs mounted")
+	add("link becomes ready|Link is Up|entered forwarding state|br-lan", "Network link ready")
+}
+
+function add(p, l) { NM++; pat[NM] = p; lab[NM] = l }
+
+function esc(s) {
+	gsub(/\\/, "\\\\", s)
+	gsub(/"/, "\\\"", s)
+	gsub(/\t/, " ", s)
+	return s
+}
+
+{
+	if (match($0, /^\[[ ]*[0-9]+\.[0-9]+\]/)) {
+		ts = substr($0, RSTART, RLENGTH)
+		gsub(/[\[\] ]/, "", ts)
+		t = ts + 0
+		if (t > maxt) maxt = t
+		rest = substr($0, RSTART + RLENGTH)
+		sub(/^[ ]+/, "", rest)
+		for (i = 1; i <= NM; i++) {
+			if (!(lab[i] in tfound) && rest ~ pat[i]) {
+				tfound[lab[i]] = t
+				traw[lab[i]]   = substr(rest, 1, 90)
+			}
+		}
+	}
+}
+
+END {
+	# собрать найденные события в индексируемые массивы
+	k = 0
+	for (l in tfound) { k++; L[k] = l; T[k] = tfound[l] }
+	# сортировка по времени (вставками; событий мало)
+	for (a = 2; a <= k; a++) {
+		vl = L[a]; vt = T[a]; b = a - 1
+		while (b >= 1 && T[b] > vt) { L[b+1] = L[b]; T[b+1] = T[b]; b-- }
+		L[b+1] = vl; T[b+1] = vt
+	}
+	avail = (maxt > 0) ? "true" : "false"
+	printf "{\"available\":%s,\"total\":%.2f,\"events\":[", avail, maxt
+	for (a = 1; a <= k; a++) {
+		if (a > 1) printf ","
+		printf "{\"t\":%.2f,\"label\":\"%s\",\"line\":\"%s\"}", T[a], esc(L[a]), esc(traw[L[a]])
+	}
+	printf "]}\n"
+}

@@ -1,0 +1,180 @@
+'use strict';
+'require baseclass';
+'require rpc';
+
+/* luci-app-streamtune — общий модуль: RPC, метаданные параметров/категорий,
+ * визуальные хелперы (бейджи статуса, кольцо оценки, иконки), загрузка CSS.
+ * Реестр параметров — зеркало root/usr/share/streamtune/lib.sh. */
+
+var ST_VER = '1.0';
+
+var callStatus = rpc.declare({ object: 'streamtune', method: 'get_status' });
+var callBoot   = rpc.declare({ object: 'streamtune', method: 'get_boot' });
+var callRevert = rpc.declare({ object: 'streamtune', method: 'revert' });
+var callApply  = rpc.declare({
+	object: 'streamtune', method: 'apply',
+	params: [ 'net_buffers', 'low_latency', 'backlog', 'congestion',
+	          'flow_offload', 'flow_offload_hw', 'conntrack', 'irqbalance',
+	          'disable_ipv6' ]
+});
+
+/* Порядок и метаданные категорий (тумблеров) */
+var CATS = [ 'net_buffers', 'low_latency', 'backlog', 'congestion',
+             'flow_offload', 'conntrack', 'irqbalance', 'disable_ipv6' ];
+
+var CATMETA = {
+	net_buffers:  { icon: 'layers',  title: _('Network buffers (TCP/UDP)'),
+		desc: _('Larger socket buffers reduce packet drops at high bitrate — fewer rebuffering events while streaming.') },
+	low_latency:  { icon: 'zap',     title: _('Low-latency TCP'),
+		desc: _('Keep long streaming sessions fast: no slow-start after idle pauses, quicker socket reuse.') },
+	backlog:      { icon: 'network', title: _('Queues & backlog'),
+		desc: _('Absorb traffic bursts without dropping packets (device backlog and NAPI budget).') },
+	congestion:   { icon: 'gauge',   title: _('Congestion control (BBR + fq)'),
+		desc: _('BBR with fair queueing fights bufferbloat and keeps latency low under load.') },
+	flow_offload: { icon: 'cpu',     title: _('Flow offloading'),
+		desc: _('Offload NAT (software, and hardware on supported SoCs) to cut CPU load and jitter.') },
+	conntrack:    { icon: 'sliders', title: _('Connection tracking'),
+		desc: _('A bigger conntrack hash table speeds up lookups when there are many connections.') },
+	irqbalance:   { icon: 'chip',    title: _('IRQ balancing'),
+		desc: _('Spread network interrupts across CPU cores to smooth out load spikes.') },
+	disable_ipv6: { icon: 'shield',  title: _('Disable IPv6'),
+		desc: _('Removes the RA/DHCPv6 handshake — faster boot and less jitter. Enable only if you do not use IPv6.') }
+};
+
+/* Человекочитаемые метки для не-sysctl ключей (sysctl показываем как есть) */
+var PLABEL = {
+	'firewall.flow_offloading':    _('Software offload'),
+	'firewall.flow_offloading_hw': _('Hardware offload'),
+	'nf_conntrack.hashsize':       _('conntrack hashsize'),
+	'service.irqbalance':          _('irqbalance service')
+};
+
+/* Подсказки по параметрам */
+var PHELP = {
+	'net.core.rmem_max':                   _('Maximum socket receive buffer size.'),
+	'net.core.wmem_max':                   _('Maximum socket send buffer size.'),
+	'net.core.rmem_default':               _('Default socket receive buffer size.'),
+	'net.core.wmem_default':               _('Default socket send buffer size.'),
+	'net.core.optmem_max':                 _('Maximum ancillary buffer size per socket.'),
+	'net.ipv4.tcp_rmem':                   _('TCP receive auto-tuning limits: min / default / max.'),
+	'net.ipv4.tcp_wmem':                   _('TCP send auto-tuning limits: min / default / max.'),
+	'net.ipv4.udp_rmem_min':               _('Minimum UDP receive buffer guaranteed per socket.'),
+	'net.ipv4.udp_wmem_min':               _('Minimum UDP send buffer guaranteed per socket.'),
+	'net.ipv4.tcp_slow_start_after_idle':  _('0 = do not slow a connection after an idle pause — critical for streaming.'),
+	'net.ipv4.tcp_tw_reuse':               _('Reuse TIME_WAIT sockets for new outgoing connections.'),
+	'net.ipv4.tcp_fin_timeout':            _('Seconds to keep a socket in FIN-WAIT-2.'),
+	'net.ipv4.tcp_max_syn_backlog':        _('Queue of half-open connections awaiting ACK.'),
+	'net.ipv4.tcp_max_tw_buckets':         _('Maximum number of TIME_WAIT sockets.'),
+	'net.core.netdev_max_backlog':         _('Packets queued when an interface delivers faster than the kernel handles.'),
+	'net.core.netdev_budget':              _('Packets processed per NAPI poll cycle.'),
+	'net.ipv4.tcp_congestion_control':     _('Congestion control algorithm; bbr is recommended for streaming.'),
+	'net.core.default_qdisc':              _('Default queueing discipline; fq pairs with BBR.'),
+	'firewall.flow_offloading':            _('Software flow offloading in the firewall.'),
+	'firewall.flow_offloading_hw':         _('Hardware NAT offloading (requires a supported SoC).'),
+	'nf_conntrack.hashsize':               _('Number of buckets in the conntrack hash table.'),
+	'service.irqbalance':                  _('irqbalance daemon that distributes IRQs across cores.'),
+	'net.ipv6.conf.all.disable_ipv6':      _('Disable IPv6 on all interfaces.'),
+	'net.ipv6.conf.default.disable_ipv6':  _('Disable IPv6 on the default interface template.')
+};
+
+var STATE = {
+	applied:     { cls: 'st-ok',   txt: _('Applied') },
+	pending:     { cls: 'st-warn', txt: _('Not applied') },
+	unavailable: { cls: 'st-mut',  txt: _('Unavailable') },
+	off:         { cls: 'st-off',  txt: _('Off') }
+};
+
+var ICONS = {
+	gauge:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14l4-4"/><path d="M3.3 17A9 9 0 1 1 20.7 17"/><circle cx="12" cy="14" r="1.4" fill="currentColor" stroke="none"/></svg>',
+	zap:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
+	layers:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',
+	network: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/><path d="M12 8v4M5 16v-2h14v2"/></svg>',
+	cpu:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg>',
+	chip:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg>',
+	sliders: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>',
+	shield:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+	clock:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/></svg>',
+	check:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+	alert:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+	info:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+	refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg>',
+	rocket:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.8.7-2 0-2.7a1.9 1.9 0 0 0-3 0z"/><path d="M12 15l-3-3a22 22 0 0 1 8-10c2.5 0 4 1.5 4 4a22 22 0 0 1-10 8z"/><path d="M9 12H5s.5-2.8 2-4c1.7-1.4 5-1 5-1M12 15v4s2.8-.5 4-2c1.4-1.4 1-5 1-5"/></svg>'
+};
+
+return baseclass.extend({
+	VER: ST_VER,
+	CATS: CATS,
+
+	rpc: {
+		status: callStatus,
+		boot:   callBoot,
+		apply:  callApply,
+		revert: callRevert
+	},
+
+	catMeta:  function(id)  { return CATMETA[id] || { icon: 'info', title: id, desc: '' }; },
+	pLabel:   function(key) { return PLABEL[key] || key; },
+	pHelp:    function(key) { return PHELP[key] || ''; },
+
+	icon: function(name) {
+		var s = E('span', { 'class': 'st-ico' });
+		s.innerHTML = ICONS[name] || ICONS.info;
+		return s;
+	},
+
+	statusBadge: function(state) {
+		var s = STATE[state] || STATE.off;
+		return E('span', { 'class': 'st-badge ' + s.cls }, s.txt);
+	},
+
+	/* Перевод состояния сервиса/значения для отображения */
+	fmtCur: function(p) {
+		if (p.type === 'service') {
+			if (p.cur === 'running') return _('running');
+			if (p.cur === 'stopped') return _('stopped');
+			if (p.cur === 'absent')  return _('not installed');
+		}
+		return (p.cur === '' || p.cur == null) ? '—' : p.cur;
+	},
+
+	/* Строка параметра: имя + рекомендованное + текущее + бейдж */
+	paramRow: function(p) {
+		var help = this.pHelp(p.key);
+		var name = E('td', { 'class': 'st-pname' }, [
+			E('span', { 'class': 'st-pkey', 'title': help }, this.pLabel(p.key))
+		]);
+		return E('tr', { 'class': 'st-prow st-row-' + p.state }, [
+			name,
+			E('td', { 'class': 'st-prec' }, (p.rec === '' || p.rec == null) ? '—' : '' + p.rec),
+			E('td', { 'class': 'st-pcur' }, this.fmtCur(p)),
+			E('td', { 'class': 'st-pst' }, [ this.statusBadge(p.state) ])
+		]);
+	},
+
+	/* Кольцо «оценки здоровья» */
+	scoreGauge: function(applied, total) {
+		var pct = total > 0 ? Math.round(applied / total * 100) : 0;
+		var r = 42, c = 2 * Math.PI * r, off = c * (1 - pct / 100);
+		var cls = pct >= 90 ? 'st-ok' : (pct >= 50 ? 'st-warn' : 'st-bad');
+		var wrap = E('div', { 'class': 'st-gauge ' + cls });
+		wrap.innerHTML =
+			'<svg viewBox="0 0 100 100" class="st-gauge-svg">' +
+			'<circle class="st-gauge-bg" cx="50" cy="50" r="42"/>' +
+			'<circle class="st-gauge-fg" cx="50" cy="50" r="42" ' +
+			'style="stroke-dasharray:' + c.toFixed(1) + ';stroke-dashoffset:' + off.toFixed(1) + '"/>' +
+			'</svg>';
+		wrap.appendChild(E('div', { 'class': 'st-gauge-num' }, [
+			E('span', { 'class': 'st-gauge-pct' }, pct + '%'),
+			E('span', { 'class': 'st-gauge-sub' }, applied + '/' + total)
+		]));
+		return wrap;
+	},
+
+	injectCSS: function() {
+		if (document.getElementById('st-style')) return;
+		document.head.appendChild(E('link', {
+			'id': 'st-style', 'rel': 'stylesheet', 'type': 'text/css',
+			'href': L.resource('view/streamtune/streamtune.css') + '?v=' + ST_VER
+		}));
+	}
+});

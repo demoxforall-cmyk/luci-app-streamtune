@@ -1,0 +1,15 @@
+{
+	"luci-app-streamtune": {
+		"description": "Access to StreamTune network-stack optimization",
+		"read": {
+			"ubus": {
+				"streamtune": [ "get_status", "get_boot" ]
+			}
+		},
+		"write": {
+			"ubus": {
+				"streamtune": [ "apply", "revert" ]
+			}
+		}
+	}
+}

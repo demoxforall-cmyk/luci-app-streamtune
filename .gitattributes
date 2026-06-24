@@ -1,0 +1,7 @@
+# Скрипты и текстовые файлы пакета должны быть с LF: CRLF ломает shebang и
+# исполнение в BusyBox на роутере. Принудительно нормализуем перевод строк.
+* text=auto eol=lf
+*.apk binary
+*.lmo binary
+*.png binary
+*.zst binary

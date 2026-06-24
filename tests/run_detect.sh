@@ -1,0 +1,33 @@
+#!/bin/sh
+# streamtune — тесты детекта статуса (detect.sh) на фикстурах /proc.
+. "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/lib.sh"
+echo "== run_detect =="
+
+# --- сценарий 1: безопасный профиль, опц/риск выкл ---
+out=$(ST_SHARE="$SH_DIR" ST_PROC_ROOT="$PROC" ST_CFG_FILE="$FIX/cfg_default.txt" \
+	ST_FW_FILE="$FIX/fw_default.txt" ST_CAPS_FILE="$FIX/caps_default.txt" \
+	ST_SYSFS_HASHSIZE="$FIX/hashsize.txt" sh "$SH_DIR/detect.sh")
+
+echo "[safe profile]"
+assert_has "$out" '"score":{"applied":16,"total":18}' "score 16/18"
+assert_has "$out" '"key":"net.core.rmem_max","type":"sysctl","cur":"16777216","rec":"16777216","state":"applied"' "rmem_max applied"
+assert_has "$out" '"key":"net.ipv4.tcp_rmem","type":"sysctl","cur":"4096 1048576 2097152","rec":"4096 1048576 2097152","state":"applied"' "tcp_rmem normalized+applied"
+assert_has "$out" '"key":"nf_conntrack.hashsize","type":"sysfs","cur":"4096","rec":"16384","state":"pending"' "conntrack pending"
+assert_has "$out" '"key":"firewall.flow_offloading","type":"firewall","cur":"0","rec":"1","state":"pending"' "flow offload pending"
+assert_has "$out" '"cat":"congestion","key":"net.ipv4.tcp_congestion_control","type":"sysctl","cur":"cubic","rec":"bbr","state":"off"' "congestion off"
+assert_has "$out" '"net_buffers":{"kind":"safe","requires":"","enabled":1,"applied":9,"total":9}' "net_buffers 9/9"
+
+# --- сценарий 2: всё включено, но bbr/irqbalance недоступны ---
+out2=$(ST_SHARE="$SH_DIR" ST_PROC_ROOT="$PROC" ST_CFG_FILE="$FIX/cfg_all.txt" \
+	ST_FW_FILE="$FIX/fw_default.txt" ST_CAPS_FILE="$FIX/caps_default.txt" \
+	ST_SYSFS_HASHSIZE="$FIX/hashsize.txt" sh "$SH_DIR/detect.sh")
+
+echo "[all-on, deps missing]"
+assert_has "$out2" '"cat":"congestion","key":"net.ipv4.tcp_congestion_control","type":"sysctl","cur":"cubic","rec":"bbr","state":"unavailable"' "congestion unavailable (no bbr)"
+assert_has "$out2" '"key":"service.irqbalance","type":"service","cur":"absent","rec":"running","state":"unavailable"' "irqbalance unavailable (absent)"
+assert_has "$out2" '"key":"net.ipv6.conf.all.disable_ipv6","type":"sysctl","cur":"0","rec":"1","state":"pending"' "ipv6 disable pending"
+assert_has "$out2" '"key":"firewall.flow_offloading_hw","type":"firewall","cur":"0","rec":"1","state":"pending"' "hw offload now desired"
+assert_has "$out2" '"caps":{"bbr":0,"irqbalance":0,"hw_offload":2}' "caps reflect missing deps"
+
+[ "$T_FAIL" -eq 0 ] && echo "run_detect: PASS" || echo "run_detect: FAIL"
+exit "$T_FAIL"
