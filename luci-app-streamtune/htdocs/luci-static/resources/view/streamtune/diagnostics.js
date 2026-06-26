@@ -127,7 +127,7 @@ return view.extend({
 				[ _('Tracked connections'), (sys.conntrack_count != null)
 					? ((sys.conntrack_count || 0) + ' / ' + (sys.conntrack_max || '—')) : '—' ],
 				[ _('Active profile'), (cfg.profile === 'lte_audio') ? _('Auto LTE / audio') : _('Generic') ],
-				[ _('BBR'), (caps.bbr === 1) ? st.bbrVersionLabel(caps.bbr_version) : _('not available') ],
+				[ _('BBR'), st.bbrText(caps) ],
 				[ _('WAN interface'), caps.wan ? caps.wan : '—' ]
 			]) ])
 		]));

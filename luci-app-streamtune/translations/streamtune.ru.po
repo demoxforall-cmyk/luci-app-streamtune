@@ -370,6 +370,9 @@ msgstr "неизвестно"
 msgid "Kernel BBR version"
 msgstr "Версия BBR в ядре"
 
+msgid "Detected from tcp_bbr.ko size: %s B (modinfo is stripped on OpenWRT)"
+msgstr "Определено по размеру tcp_bbr.ko: %s Б (modinfo в OpenWRT вырезан)"
+
 msgid "A router only forwards your phone’s streams — it is not the TCP endpoint. So TCP/buffer sysctls (tagged “router-only”) affect only the router’s own traffic, not the audio stream."
 msgstr "Роутер лишь форвардит потоки телефона — он не является TCP-эндпоинтом. Поэтому TCP/буферные sysctl (с тегом «только роутер») влияют лишь на собственный трафик роутера, а не на аудиопоток."
 

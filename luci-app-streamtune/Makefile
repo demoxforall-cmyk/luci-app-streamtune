@@ -10,7 +10,7 @@ LUCI_TITLE:=Stream Optimizer — tune network stack for low-latency audio stream
 LUCI_DEPENDS:=+luci-base
 LUCI_EXTRA_DEPENDS:=kmod-tcp-bbr (>=0), irqbalance (>=0)
 LUCI_PKGARCH:=all
-PKG_VERSION:=1.2
+PKG_VERSION:=1.3
 PKG_LICENSE:=GPL-2.0
 PKG_MAINTAINER:=StreamTune project
 

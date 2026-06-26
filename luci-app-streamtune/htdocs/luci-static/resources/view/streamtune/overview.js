@@ -190,7 +190,11 @@ return view.extend({
 		dom.content(this.gaugeBox, st.scoreGauge(data.score.applied, data.score.total));
 		var pct = data.score.total > 0 ? Math.round(data.score.applied / data.score.total * 100) : 0;
 		var bbrChip = (this.caps.bbr === 1)
-			? E('span', { 'class': 'st-pill2', 'title': _('Kernel BBR version') }, 'BBR ' + st.bbrVersionLabel(this.caps.bbr_version))
+			? E('span', { 'class': 'st-pill2',
+				'title': this.caps.bbr_ksize
+					? _('Detected from tcp_bbr.ko size: %s B (modinfo is stripped on OpenWRT)').format(this.caps.bbr_ksize)
+					: _('Kernel BBR version') },
+				'BBR ' + st.bbrVersionLabel(this.caps.bbr_version))
 			: '';
 		dom.content(this.scoreLine, [
 			E('strong', {}, _('%d of %d enabled optimizations applied').format(data.score.applied, data.score.total)),

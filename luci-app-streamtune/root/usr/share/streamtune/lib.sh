@@ -223,14 +223,32 @@ st_cap_bbr() {
 	if [ -r "$_p" ] && grep -qw bbr "$_p" 2>/dev/null; then echo 1; else echo 0; fi
 }
 
-# Версия BBR в ядре (строка, напр. "1" или "3"; пусто если неизвестно).
-# Mainline 6.12 = BBRv1; BBRv3 — только кастомное ядро.
+# Размер модуля tcp_bbr.ko на диске (байт). Пусто, если BBR встроен в ядро
+# (CONFIG_..=y) или модуль не найден. Для тестов — ST_BBR_KSIZE.
+st_bbr_ksize() {
+	[ -n "${ST_BBR_KSIZE:-}" ] && { echo "$ST_BBR_KSIZE"; return; }
+	_f="/lib/modules/$(uname -r 2>/dev/null)/tcp_bbr.ko"
+	[ -f "$_f" ] || _f=$(find /lib/modules -name 'tcp_bbr.ko' 2>/dev/null | head -1)
+	[ -n "$_f" ] && [ -f "$_f" ] && wc -c < "$_f" 2>/dev/null | tr -d ' '
+}
+
+# Версия BBR: "1" | "3" | "" (неизвестно/встроен).
+# ВАЖНО: OpenWRT вырезает .modinfo, поэтому version/srcversion в модуле НЕТ
+# (одинаково для v1/v3). Определяем по РАЗМЕРУ stripped-модуля tcp_bbr.ko: патчи
+# v3 добавляют код (state-machine BW_PROBE, ECN, inflight_hi/lo) -> модуль
+# заметно крупнее стокового v1. Порог настраивается (UCI bbr_v1_maxsize, дефолт
+# 14500 — для ImmortalWRT 25.12 mediatek, где сток v1 ≈ 13856 байт, v3 ≈ 15736).
 st_bbr_version() {
 	[ -n "${ST_BBR_VERSION:-}" ] && { echo "$ST_BBR_VERSION"; return; }
+	# на не-OpenWRT ядрах version может быть доступен — пробуем сначала
 	if [ -r /sys/module/tcp_bbr/version ]; then
-		cat /sys/module/tcp_bbr/version 2>/dev/null; return
+		_v=$(cat /sys/module/tcp_bbr/version 2>/dev/null)
+		[ -n "$_v" ] && { echo "$_v"; return; }
 	fi
-	command -v modinfo >/dev/null 2>&1 && modinfo -F version tcp_bbr 2>/dev/null
+	_sz=$(st_bbr_ksize)
+	[ -n "$_sz" ] || { echo ""; return; }
+	_thr=$(st_cfg bbr_v1_maxsize 14500)
+	if [ "$_sz" -gt "$_thr" ] 2>/dev/null; then echo 3; else echo 1; fi
 }
 
 st_cap_irqbalance() {

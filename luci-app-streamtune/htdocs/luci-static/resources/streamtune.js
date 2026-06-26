@@ -6,7 +6,7 @@
  * визуальные хелперы (бейджи статуса, кольцо оценки, иконки), загрузка CSS.
  * Реестр параметров — зеркало root/usr/share/streamtune/lib.sh. */
 
-var ST_VER = '1.2';
+var ST_VER = '1.3';
 
 var callStatus = rpc.declare({ object: 'streamtune', method: 'get_status' });
 var callBoot   = rpc.declare({ object: 'streamtune', method: 'get_boot' });
@@ -155,6 +155,14 @@ return baseclass.extend({
 		if (!v) return _('unknown');
 		var m = ('' + v).match(/^(\d+)/);
 		return m ? ('v' + m[1]) : ('' + v);
+	},
+
+	/* Текст для отображения: версия + размер модуля (доказательство) */
+	bbrText: function(caps) {
+		if (!caps || caps.bbr !== 1) return _('not available');
+		var s = this.bbrVersionLabel(caps.bbr_version);
+		if (caps.bbr_ksize) s += ' · ' + caps.bbr_ksize + ' B';
+		return s;
 	},
 
 	icon: function(name) {

@@ -16,3 +16,6 @@ config streamtune 'global'
 	option disable_ipv6 '0'
 	# целевой размер хэш-таблицы conntrack
 	option hashsize '16384'
+	# порог размера tcp_bbr.ko (байт) для определения v1/v3 (modinfo вырезан в OpenWRT);
+	# > порога => BBR v3. Дефолт под ImmortalWRT 25.12 mediatek (сток v1 ~13856).
+	option bbr_v1_maxsize '14500'

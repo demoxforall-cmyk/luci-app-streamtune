@@ -57,5 +57,15 @@ assert_has "$out4" '"key":"link.mtu","type":"mtu","cur":"1500","rec":"1430","sta
 assert_has "$out4" '"key":"nf_conntrack.tcp_established","type":"sysctl","cur":"432000","rec":"7440","state":"pending"' "conntrack timeout lever"
 assert_has "$out4" '"bbr_version":"3"' "BBR version surfaced"
 
+# --- сценарий 5: версия BBR по размеру модуля (modinfo в OpenWRT вырезан) ---
+mk_size() { ST_SHARE="$SH_DIR" ST_PROC_ROOT="$PROC" ST_CFG_FILE="$FIX/cfg_lte.txt" \
+	ST_CAPS_FILE="$FIX/caps_bbr.txt" ST_SYSFS_HASHSIZE="$FIX/hashsize.txt" \
+	ST_FW_FILE="$FIX/fw_lte.txt" ST_NET_FILE="$FIX/net_default.txt" ST_WAN_IFACE=wwan0 \
+	ST_BBR_KSIZE="$1" sh "$SH_DIR/detect.sh"; }
+
+echo "[bbr version by module size]"
+assert_has "$(mk_size 15736)" '"bbr_version":"3","bbr_ksize":"15736"' "15736 B -> v3"
+assert_has "$(mk_size 13856)" '"bbr_version":"1","bbr_ksize":"13856"' "13856 B -> v1"
+
 [ "$T_FAIL" -eq 0 ] && echo "run_detect: PASS" || echo "run_detect: FAIL"
 exit "$T_FAIL"

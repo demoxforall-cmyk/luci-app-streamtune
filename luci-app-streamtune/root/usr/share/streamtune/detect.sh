@@ -60,9 +60,9 @@ EOF
 printf '}'
 
 # --- capabilities ---
-printf ',"caps":{"bbr":%s,"irqbalance":%s,"hw_offload":%s,"bbr_version":"%s","wan":"%s"}' \
+printf ',"caps":{"bbr":%s,"irqbalance":%s,"hw_offload":%s,"bbr_version":"%s","bbr_ksize":"%s","wan":"%s"}' \
 	"$(st_cap_bbr)" "$(st_cap_irqbalance)" "$(st_cap_hw_offload)" \
-	"$(js "$(st_bbr_version)")" "$(js "$(st_wan_iface)")"
+	"$(js "$(st_bbr_version)")" "$(js "$(st_bbr_ksize)")" "$(js "$(st_wan_iface)")"
 
 # --- конфиг (профиль + тумблеры) ---
 printf ',"config":{'
