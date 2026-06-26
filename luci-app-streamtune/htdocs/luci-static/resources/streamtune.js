@@ -6,21 +6,41 @@
  * визуальные хелперы (бейджи статуса, кольцо оценки, иконки), загрузка CSS.
  * Реестр параметров — зеркало root/usr/share/streamtune/lib.sh. */
 
-var ST_VER = '1.1';
+var ST_VER = '1.2';
 
 var callStatus = rpc.declare({ object: 'streamtune', method: 'get_status' });
 var callBoot   = rpc.declare({ object: 'streamtune', method: 'get_boot' });
 var callRevert = rpc.declare({ object: 'streamtune', method: 'revert' });
 var callApply  = rpc.declare({
 	object: 'streamtune', method: 'apply',
-	params: [ 'net_buffers', 'low_latency', 'backlog', 'congestion',
+	params: [ 'profile', 'net_buffers', 'low_latency', 'backlog', 'congestion',
 	          'flow_offload', 'flow_offload_hw', 'conntrack', 'irqbalance',
-	          'disable_ipv6' ]
+	          'disable_ipv6', 'mobile_lte', 'wan_iface' ]
 });
 
 /* Порядок и метаданные категорий (тумблеров) */
 var CATS = [ 'net_buffers', 'low_latency', 'backlog', 'congestion',
-             'flow_offload', 'conntrack', 'irqbalance', 'disable_ipv6' ];
+             'flow_offload', 'conntrack', 'irqbalance', 'disable_ipv6', 'mobile_lte' ];
+
+/* Пресеты профилей: значения тумблеров категорий */
+var PROFILES = {
+	generic:   { net_buffers: 1, low_latency: 1, backlog: 1, congestion: 0,
+	             flow_offload: 1, flow_offload_hw: 0, conntrack: 1, irqbalance: 0,
+	             disable_ipv6: 0, mobile_lte: 0 },
+	lte_audio: { net_buffers: 1, low_latency: 1, backlog: 0, congestion: 1,
+	             flow_offload: 0, flow_offload_hw: 0, conntrack: 1, irqbalance: 0,
+	             disable_ipv6: 0, mobile_lte: 1 }
+};
+
+/* Параметры, влияющие ТОЛЬКО на трафик самого роутера (не на форвардимый поток) */
+var ROUTER_ONLY = {
+	'net.core.rmem_max': 1, 'net.core.wmem_max': 1, 'net.core.rmem_default': 1,
+	'net.core.wmem_default': 1, 'net.core.optmem_max': 1, 'net.ipv4.tcp_rmem': 1,
+	'net.ipv4.tcp_wmem': 1, 'net.ipv4.udp_rmem_min': 1, 'net.ipv4.udp_wmem_min': 1,
+	'net.ipv4.tcp_slow_start_after_idle': 1, 'net.ipv4.tcp_tw_reuse': 1,
+	'net.ipv4.tcp_fin_timeout': 1, 'net.ipv4.tcp_max_syn_backlog': 1,
+	'net.ipv4.tcp_max_tw_buckets': 1, 'net.ipv4.tcp_congestion_control': 1
+};
 
 var CATMETA = {
 	net_buffers:  { icon: 'layers',  title: _('Network buffers (TCP/UDP)'),
@@ -38,7 +58,9 @@ var CATMETA = {
 	irqbalance:   { icon: 'chip',    title: _('IRQ balancing'),
 		desc: _('Spread network interrupts across CPU cores to smooth out load spikes.') },
 	disable_ipv6: { icon: 'shield',  title: _('Disable IPv6'),
-		desc: _('Removes the RA/DHCPv6 handshake — faster boot and less jitter. Enable only if you do not use IPv6.') }
+		desc: _('On mobile carriers this BREAKS 464XLAT/CLAT and can kill connectivity — keep IPv6 enabled. No audio benefit.') },
+	mobile_lte:   { icon: 'globe',   title: _('Mobile LTE link'),
+		desc: _('Forwarded-traffic fixes that actually matter on a cellular link: MTU + MSS clamp (prevents TLS blackhole stalls) and a generous conntrack timeout.') }
 };
 
 /* Человекочитаемые метки для не-sysctl ключей (sysctl показываем как есть) */
@@ -46,7 +68,10 @@ var PLABEL = {
 	'firewall.flow_offloading':    _('Software offload'),
 	'firewall.flow_offloading_hw': _('Hardware offload'),
 	'nf_conntrack.hashsize':       _('conntrack hashsize'),
-	'service.irqbalance':          _('irqbalance service')
+	'service.irqbalance':          _('irqbalance service'),
+	'nf_conntrack.tcp_established': _('conntrack TCP timeout'),
+	'link.mtu':                    _('WAN MTU'),
+	'link.mss_clamp':              _('MSS clamping')
 };
 
 /* Подсказки по параметрам */
@@ -74,7 +99,10 @@ var PHELP = {
 	'nf_conntrack.hashsize':               _('Number of buckets in the conntrack hash table.'),
 	'service.irqbalance':                  _('irqbalance daemon that distributes IRQs across cores.'),
 	'net.ipv6.conf.all.disable_ipv6':      _('Disable IPv6 on all interfaces.'),
-	'net.ipv6.conf.default.disable_ipv6':  _('Disable IPv6 on the default interface template.')
+	'net.ipv6.conf.default.disable_ipv6':  _('Disable IPv6 on the default interface template.'),
+	'nf_conntrack.tcp_established':        _('Established-TCP conntrack timeout (seconds); keep generous so idle audio streams are not reaped from NAT.'),
+	'link.mtu':                            _('WAN MTU; ~1430 compensates cellular tunnel overhead.'),
+	'link.mss_clamp':                      _('Clamp TCP MSS to the path MTU so large TLS packets do not silently blackhole on the cellular link.')
 };
 
 var STATE = {
@@ -82,6 +110,7 @@ var STATE = {
 	pending:     { cls: 'st-warn',  txt: _('Not applied') },
 	unavailable: { cls: 'st-mut',   txt: _('Unavailable') },
 	match:       { cls: 'st-match', txt: _('Matches') },
+	unmanaged:   { cls: 'st-mut',   txt: _('Default') },
 	off:         { cls: 'st-off',   txt: _('Off') }
 };
 
@@ -94,6 +123,7 @@ var ICONS = {
 	chip:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg>',
 	sliders: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>',
 	shield:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+	globe:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18"/></svg>',
 	clock:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/></svg>',
 	check:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
 	alert:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
@@ -113,9 +143,19 @@ return baseclass.extend({
 		revert: callRevert
 	},
 
+	PROFILES: PROFILES,
+
 	catMeta:  function(id)  { return CATMETA[id] || { icon: 'info', title: id, desc: '' }; },
 	pLabel:   function(key) { return PLABEL[key] || key; },
 	pHelp:    function(key) { return PHELP[key] || ''; },
+	routerOnly: function(key) { return !!ROUTER_ONLY[key]; },
+
+	/* "v1"/"v3"/… из строки версии модуля tcp_bbr */
+	bbrVersionLabel: function(v) {
+		if (!v) return _('unknown');
+		var m = ('' + v).match(/^(\d+)/);
+		return m ? ('v' + m[1]) : ('' + v);
+	},
 
 	icon: function(name) {
 		var s = E('span', { 'class': 'st-ico' });
@@ -141,9 +181,10 @@ return baseclass.extend({
 	/* Строка параметра: имя + рекомендованное + текущее + бейдж */
 	paramRow: function(p) {
 		var help = this.pHelp(p.key);
-		var name = E('td', { 'class': 'st-pname' }, [
-			E('span', { 'class': 'st-pkey', 'title': help }, this.pLabel(p.key))
-		]);
+		var nameKids = [ E('span', { 'class': 'st-pkey', 'title': help }, this.pLabel(p.key)) ];
+		if (this.routerOnly(p.key))
+			nameKids.push(E('span', { 'class': 'st-tag st-tag-ro', 'title': _('Affects only traffic the router itself originates (DNS, updates) — not devices streaming through it.') }, _('router-only')));
+		var name = E('td', { 'class': 'st-pname' }, nameKids);
 		return E('tr', { 'class': 'st-prow st-row-' + p.state }, [
 			name,
 			E('td', { 'class': 'st-prec' }, (p.rec === '' || p.rec == null) ? '—' : '' + p.rec),

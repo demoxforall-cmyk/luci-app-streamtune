@@ -1,0 +1,11 @@
+profile=lte_audio
+net_buffers=1
+low_latency=1
+backlog=0
+congestion=1
+flow_offload=0
+flow_offload_hw=0
+conntrack=1
+irqbalance=0
+disable_ipv6=0
+mobile_lte=1

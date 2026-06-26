@@ -142,6 +142,19 @@
 .st-tips { margin: 6px 0 0; padding-left: 18px; }
 .st-tips li { margin: 6px 0; color: var(--st-mut); }
 
+/* ---------- profile selector (segmented) ---------- */
+.st-profile-row { display: flex; align-items: center; gap: 10px; margin: 2px 0 12px; flex-wrap: wrap; }
+.st-profile-label { color: var(--st-mut); font-weight: 600; }
+.st-seg { display: inline-flex; border: 1px solid var(--st-line); border-radius: 10px; overflow: hidden; }
+.st-seg-btn { border: none; background: transparent; padding: 6px 14px; cursor: pointer; color: inherit; font: inherit; border-right: 1px solid var(--st-line); }
+.st-seg-btn:last-child { border-right: none; }
+.st-seg-btn.st-on { background: color-mix(in srgb, var(--st-accent) 22%, transparent); color: var(--st-accent); font-weight: 600; }
+
+/* ---------- pill / tags ---------- */
+.st-pill2 { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 9px; border-radius: 20px; background: color-mix(in srgb, var(--st-accent) 16%, transparent); color: var(--st-accent); }
+.st-tag { display: inline-block; font-size: 10px; font-weight: 600; padding: 0 6px; border-radius: 10px; margin-left: 6px; vertical-align: middle; cursor: help; text-transform: uppercase; letter-spacing: .3px; }
+.st-tag-ro { background: color-mix(in srgb, currentColor 10%, transparent); color: var(--st-mut); }
+
 /* ---------- responsive ---------- */
 @media (max-width: 920px) {
 	.st-cards { grid-template-columns: 1fr; }

@@ -290,3 +290,94 @@ msgstr "Доступно ОЗУ"
 
 msgid "Tracked connections"
 msgstr "Отслеживаемые соединения"
+
+# ---- v1.2: профили, mobile_lte, BBR-версия ----
+msgid "Generic"
+msgstr "Базовый"
+
+msgid "Auto LTE / audio"
+msgstr "Авто LTE / аудио"
+
+msgid "Profile:"
+msgstr "Профиль:"
+
+msgid "Profile changed but not applied yet — press “Apply selected”."
+msgstr "Профиль изменён, но ещё не применён — нажмите «Применить выбранное»."
+
+msgid "Profile “%s” selected. Press “Apply selected” to activate."
+msgstr "Выбран профиль «%s». Нажмите «Применить выбранное», чтобы активировать."
+
+msgid "Tune the network stack for low-latency, low-jitter audio/video streaming. Pick a profile, review each parameter and apply."
+msgstr "Настройка сетевого стека под аудио-/видео-стриминг с низкой задержкой и джиттером. Выберите профиль, просмотрите параметры и примените."
+
+msgid "Revert all StreamTune optimizations and reset to the Generic profile?"
+msgstr "Сбросить все оптимизации StreamTune и вернуться к базовому профилю?"
+
+msgid "Mobile LTE link"
+msgstr "Мобильный LTE-канал"
+
+msgid "Forwarded-traffic fixes that actually matter on a cellular link: MTU + MSS clamp (prevents TLS blackhole stalls) and a generous conntrack timeout."
+msgstr "Исправления для форвардимого трафика, реально важные на сотовом канале: MTU + MSS-clamp (предотвращает залипания из-за блэкхола TLS) и щедрый conntrack-таймаут."
+
+msgid "On mobile carriers this BREAKS 464XLAT/CLAT and can kill connectivity — keep IPv6 enabled. No audio benefit."
+msgstr "На мобильных операторах это ЛОМАЕТ 464XLAT/CLAT и может убить связь — оставьте IPv6 включённым. Для звука пользы нет."
+
+msgid "conntrack TCP timeout"
+msgstr "TCP-таймаут conntrack"
+
+msgid "WAN MTU"
+msgstr "MTU на WAN"
+
+msgid "MSS clamping"
+msgstr "MSS-clamping"
+
+msgid "Established-TCP conntrack timeout (seconds); keep generous so idle audio streams are not reaped from NAT."
+msgstr "Таймаут established-TCP в conntrack (сек); держите щедрым, чтобы тихие аудиопотоки не выпадали из NAT."
+
+msgid "WAN MTU; ~1430 compensates cellular tunnel overhead."
+msgstr "MTU на WAN; ~1430 компенсирует туннельный оверхед сотовой сети."
+
+msgid "Clamp TCP MSS to the path MTU so large TLS packets do not silently blackhole on the cellular link."
+msgstr "Прижать TCP MSS к MTU пути, чтобы крупные TLS-пакеты не уходили в чёрную дыру на сотовом канале."
+
+msgid "Default"
+msgstr "По умолчанию"
+
+msgid "router-only"
+msgstr "только роутер"
+
+msgid "Affects only traffic the router itself originates (DNS, updates) — not devices streaming through it."
+msgstr "Влияет только на трафик, который создаёт сам роутер (DNS, обновления) — не на устройства, стримящие через него."
+
+msgid "WAN interface (blank = auto)"
+msgstr "WAN-интерфейс (пусто = авто)"
+
+msgid "auto-detect"
+msgstr "автоопределение"
+
+msgid "Active profile"
+msgstr "Активный профиль"
+
+msgid "WAN interface"
+msgstr "WAN-интерфейс"
+
+msgid "not available"
+msgstr "недоступно"
+
+msgid "unknown"
+msgstr "неизвестно"
+
+msgid "Kernel BBR version"
+msgstr "Версия BBR в ядре"
+
+msgid "A router only forwards your phone’s streams — it is not the TCP endpoint. So TCP/buffer sysctls (tagged “router-only”) affect only the router’s own traffic, not the audio stream."
+msgstr "Роутер лишь форвардит потоки телефона — он не является TCP-эндпоинтом. Поэтому TCP/буферные sysctl (с тегом «только роутер») влияют лишь на собственный трафик роутера, а не на аудиопоток."
+
+msgid "Keep IPv6 enabled and the modem APN as IPV4V6: mobile carriers often use 464XLAT/CLAT, and disabling IPv6 can break connectivity."
+msgstr "Держите IPv6 включённым, а APN модема — IPV4V6: мобильные операторы часто используют 464XLAT/CLAT, и отключение IPv6 может разорвать связь."
+
+msgid "When several devices share the car link, install luci-app-sqm with cake-autorate (adaptive shaping for variable cellular bandwidth) — for a single audio stream it is not needed."
+msgstr "Когда канал в машине делят несколько устройств, поставьте luci-app-sqm с cake-autorate (адаптивный шейпинг под переменную сотовую полосу) — для одного аудиопотока не нужно."
+
+msgid "In a moving vehicle do not hard-lock LTE bands — free handover keeps coverage continuous; add a modem keepalive/watchdog for stuck connections."
+msgstr "В движущейся машине не лочьте жёстко LTE-бэнды — свободный хэндовер сохраняет покрытие; добавьте keepalive/watchdog модема для зависших соединений."

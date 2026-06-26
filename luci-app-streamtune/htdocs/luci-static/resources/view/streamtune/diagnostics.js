@@ -27,7 +27,10 @@ return view.extend({
 	handleReset: null,
 
 	load: function() {
-		return L.resolveDefault(st.rpc.boot(), {});
+		return Promise.all([
+			L.resolveDefault(st.rpc.boot(), {}),
+			L.resolveDefault(st.rpc.status(), {})
+		]);
 	},
 
 	render: function(data) {
@@ -51,10 +54,10 @@ return view.extend({
 			]),
 			E('div', { 'class': 'st-card-b' }, [
 				E('ul', { 'class': 'st-tips' }, [
-					E('li', {}, _('Trim unused kernel modules from /etc/modules.d/* to shorten boot time.')),
-					E('li', {}, _('On slow WAN links, install luci-app-sqm (CAKE/fq_codel) to fight bufferbloat — needs your real up/down speeds.')),
-					E('li', {}, _('Empty PCIe slots can add multi-second probe timeouts at boot; this usually requires a device-tree (DTS) change.')),
-					E('li', {}, _('Keep the LTE/5G modem on IPv4-only if your operator does not need IPv6 — avoids extra session setup delay.'))
+					E('li', {}, _('A router only forwards your phone’s streams — it is not the TCP endpoint. So TCP/buffer sysctls (tagged “router-only”) affect only the router’s own traffic, not the audio stream.')),
+					E('li', {}, _('Keep IPv6 enabled and the modem APN as IPV4V6: mobile carriers often use 464XLAT/CLAT, and disabling IPv6 can break connectivity.')),
+					E('li', {}, _('When several devices share the car link, install luci-app-sqm with cake-autorate (adaptive shaping for variable cellular bandwidth) — for a single audio stream it is not needed.')),
+					E('li', {}, _('In a moving vehicle do not hard-lock LTE bands — free handover keeps coverage continuous; add a modem keepalive/watchdog for stuck connections.'))
 				])
 			])
 		]);
@@ -65,9 +68,13 @@ return view.extend({
 		]);
 	},
 
-	renderBoot: function(data) {
-		var boot = (data && data.boot) || { available: false, total: 0, events: [] };
-		var sys = (data && data.sys) || {};
+	renderBoot: function(res) {
+		var data = (res && res[0]) || {};
+		var status = (res && res[1]) || {};
+		var caps = status.caps || {};
+		var cfg = status.config || {};
+		var boot = data.boot || { available: false, total: 0, events: [] };
+		var sys = data.sys || {};
 
 		/* --- таймлайн загрузки --- */
 		var inner;
@@ -118,7 +125,10 @@ return view.extend({
 				[ _('RAM total'), mb(sys.mem_total_kb || 0) ],
 				[ _('RAM available'), mb(sys.mem_free_kb || 0) ],
 				[ _('Tracked connections'), (sys.conntrack_count != null)
-					? ((sys.conntrack_count || 0) + ' / ' + (sys.conntrack_max || '—')) : '—' ]
+					? ((sys.conntrack_count || 0) + ' / ' + (sys.conntrack_max || '—')) : '—' ],
+				[ _('Active profile'), (cfg.profile === 'lte_audio') ? _('Auto LTE / audio') : _('Generic') ],
+				[ _('BBR'), (caps.bbr === 1) ? st.bbrVersionLabel(caps.bbr_version) : _('not available') ],
+				[ _('WAN interface'), caps.wan ? caps.wan : '—' ]
 			]) ])
 		]));
 	}

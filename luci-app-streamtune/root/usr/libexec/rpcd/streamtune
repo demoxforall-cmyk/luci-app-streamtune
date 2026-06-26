@@ -20,9 +20,9 @@ case "$1" in
 	list)
 		cat <<JSON
 { "get_status":{}, "get_boot":{},
-  "apply":{ "net_buffers":"", "low_latency":"", "backlog":"", "congestion":"",
+  "apply":{ "profile":"", "net_buffers":"", "low_latency":"", "backlog":"", "congestion":"",
             "flow_offload":"", "flow_offload_hw":"", "conntrack":"", "irqbalance":"",
-            "disable_ipv6":"" },
+            "disable_ipv6":"", "mobile_lte":"", "wan_iface":"" },
   "revert":{} }
 JSON
 		;;
@@ -38,13 +38,27 @@ JSON
 				read -r input
 				json_load "$input"
 				ensure_cfg
+				# булевы тумблеры
 				for opt in net_buffers low_latency backlog congestion \
-				           flow_offload flow_offload_hw conntrack irqbalance disable_ipv6; do
+				           flow_offload flow_offload_hw conntrack irqbalance \
+				           disable_ipv6 mobile_lte; do
 					json_get_var v "$opt"
 					case "$v" in
 						0|1) uci set "streamtune.global.$opt=$v" ;;
 					esac
 				done
+				# профиль (только известные значения)
+				json_get_var prof profile
+				case "$prof" in
+					generic|lte_audio) uci set "streamtune.global.profile=$prof" ;;
+				esac
+				# WAN-интерфейс (опционально, валидное имя секции UCI)
+				json_get_var wif wan_iface
+				case "$wif" in
+					"" ) : ;;
+					*[!a-zA-Z0-9_]* ) : ;;
+					* ) uci set "streamtune.global.wan_iface=$wif" ;;
+				esac
 				uci commit streamtune
 				sh "$ST_SHARE/apply.sh" apply ;;
 			revert)

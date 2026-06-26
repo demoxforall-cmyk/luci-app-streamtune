@@ -1,4 +1,8 @@
 config streamtune 'global'
+	# активный профиль: generic | lte_audio
+	option profile 'generic'
+	# WAN-интерфейс для MTU/MSS (пусто = автоопределение)
+	option wan_iface ''
 	# безопасный профиль включён по умолчанию
 	option net_buffers '1'
 	option low_latency '1'
