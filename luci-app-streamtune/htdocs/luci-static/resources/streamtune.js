@@ -6,7 +6,7 @@
  * визуальные хелперы (бейджи статуса, кольцо оценки, иконки), загрузка CSS.
  * Реестр параметров — зеркало root/usr/share/streamtune/lib.sh. */
 
-var ST_VER = '1.0';
+var ST_VER = '1.1';
 
 var callStatus = rpc.declare({ object: 'streamtune', method: 'get_status' });
 var callBoot   = rpc.declare({ object: 'streamtune', method: 'get_boot' });
@@ -78,10 +78,11 @@ var PHELP = {
 };
 
 var STATE = {
-	applied:     { cls: 'st-ok',   txt: _('Applied') },
-	pending:     { cls: 'st-warn', txt: _('Not applied') },
-	unavailable: { cls: 'st-mut',  txt: _('Unavailable') },
-	off:         { cls: 'st-off',  txt: _('Off') }
+	applied:     { cls: 'st-ok',    txt: _('Applied') },
+	pending:     { cls: 'st-warn',  txt: _('Not applied') },
+	unavailable: { cls: 'st-mut',   txt: _('Unavailable') },
+	match:       { cls: 'st-match', txt: _('Matches') },
+	off:         { cls: 'st-off',   txt: _('Off') }
 };
 
 var ICONS = {

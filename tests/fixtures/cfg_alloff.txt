@@ -1,0 +1,9 @@
+net_buffers=0
+low_latency=0
+backlog=0
+congestion=0
+flow_offload=0
+flow_offload_hw=0
+conntrack=0
+irqbalance=0
+disable_ipv6=0

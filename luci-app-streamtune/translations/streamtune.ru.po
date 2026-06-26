@@ -154,6 +154,12 @@ msgstr "Недоступно"
 msgid "Off"
 msgstr "Выключено"
 
+msgid "Matches"
+msgstr "Соответствует"
+
+msgid "%d matching"
+msgstr "%d соответствует"
+
 msgid "running"
 msgstr "работает"
 

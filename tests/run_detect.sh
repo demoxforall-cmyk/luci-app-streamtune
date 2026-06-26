@@ -15,7 +15,7 @@ assert_has "$out" '"key":"net.ipv4.tcp_rmem","type":"sysctl","cur":"4096 1048576
 assert_has "$out" '"key":"nf_conntrack.hashsize","type":"sysfs","cur":"4096","rec":"16384","state":"pending"' "conntrack pending"
 assert_has "$out" '"key":"firewall.flow_offloading","type":"firewall","cur":"0","rec":"1","state":"pending"' "flow offload pending"
 assert_has "$out" '"cat":"congestion","key":"net.ipv4.tcp_congestion_control","type":"sysctl","cur":"cubic","rec":"bbr","state":"off"' "congestion off"
-assert_has "$out" '"net_buffers":{"kind":"safe","requires":"","enabled":1,"applied":9,"total":9}' "net_buffers 9/9"
+assert_has "$out" '"net_buffers":{"kind":"safe","requires":"","enabled":1,"applied":9,"total":9,"match":0}' "net_buffers 9/9"
 
 # --- сценарий 2: всё включено, но bbr/irqbalance недоступны ---
 out2=$(ST_SHARE="$SH_DIR" ST_PROC_ROOT="$PROC" ST_CFG_FILE="$FIX/cfg_all.txt" \
@@ -28,6 +28,18 @@ assert_has "$out2" '"key":"service.irqbalance","type":"service","cur":"absent","
 assert_has "$out2" '"key":"net.ipv6.conf.all.disable_ipv6","type":"sysctl","cur":"0","rec":"1","state":"pending"' "ipv6 disable pending"
 assert_has "$out2" '"key":"firewall.flow_offloading_hw","type":"firewall","cur":"0","rec":"1","state":"pending"' "hw offload now desired"
 assert_has "$out2" '"caps":{"bbr":0,"irqbalance":0,"hw_offload":2}' "caps reflect missing deps"
+
+# --- сценарий 3: все категории выключены, но значения уже совпадают -> "match" ---
+out3=$(ST_SHARE="$SH_DIR" ST_PROC_ROOT="$PROC" ST_CFG_FILE="$FIX/cfg_alloff.txt" \
+	ST_FW_FILE="$FIX/fw_offload_on.txt" ST_CAPS_FILE="$FIX/caps_default.txt" \
+	ST_SYSFS_HASHSIZE="$FIX/hashsize.txt" sh "$SH_DIR/detect.sh")
+
+echo "[all-off, system already matches]"
+assert_has "$out3" '"score":{"applied":0,"total":0}' "nothing desired -> score 0/0"
+assert_has "$out3" '"cat":"net_buffers","key":"net.core.rmem_max","type":"sysctl","cur":"16777216","rec":"16777216","state":"match"' "rmem_max -> match (off but equal)"
+assert_has "$out3" '"net_buffers":{"kind":"safe","requires":"","enabled":0,"applied":0,"total":0,"match":9}' "net_buffers 9 matching"
+assert_has "$out3" '"key":"firewall.flow_offloading","type":"firewall","cur":"1","rec":"1","state":"match"' "flow offload already set -> match"
+assert_has "$out3" '"cat":"congestion","key":"net.ipv4.tcp_congestion_control","type":"sysctl","cur":"cubic","rec":"bbr","state":"off"' "mismatch stays off"
 
 [ "$T_FAIL" -eq 0 ] && echo "run_detect: PASS" || echo "run_detect: FAIL"
 exit "$T_FAIL"

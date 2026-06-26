@@ -198,7 +198,17 @@ st_service_state() {
 st_param_state() {
 	# st_param_state <category> <key> <type> <cur> <rec>
 	_cat="$1"; _key="$2"; _typ="$3"; _cur="$4"; _rec="$5"
-	if ! st_param_desired "$_cat" "$_key"; then echo off; return; fi
+	if ! st_param_desired "$_cat" "$_key"; then
+		# Категория/опция не выбрана в профиле. Если система УЖЕ соответствует
+		# рекомендованному (значение фактически стоит) — показываем "match",
+		# иначе "off". Это снимает двусмысленность статуса "Off".
+		if [ -n "$_cur" ] && [ "$(st_norm "$_cur")" = "$(st_norm "$_rec")" ]; then
+			echo match
+		else
+			echo off
+		fi
+		return
+	fi
 	case "$_cat" in
 		congestion)
 			[ "$(st_cap_bbr)" = "1" ] || { echo unavailable; return; } ;;

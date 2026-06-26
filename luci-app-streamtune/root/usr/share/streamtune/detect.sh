@@ -14,7 +14,7 @@ ST_SHARE="${ST_SHARE:-/usr/share/streamtune}"
 js() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 
 applied=0; desired=0
-for cat in $(st_categories); do eval "CA_$cat=0; CT_$cat=0"; done
+for cat in $(st_categories); do eval "CA_$cat=0; CT_$cat=0; CM_$cat=0"; done
 
 printf '{'
 printf '"params":['
@@ -24,12 +24,15 @@ while IFS='|' read -r cat key typ target rec0; do
 	cur=$(st_read_current "$typ" "$target")
 	rec=$(st_recommended "$key" "$rec0")
 	state=$(st_param_state "$cat" "$key" "$typ" "$cur" "$rec")
-	if [ "$state" != "off" ]; then
-		desired=$((desired + 1)); eval "CT_$cat=\$((CT_$cat + 1))"
-	fi
-	if [ "$state" = "applied" ]; then
-		applied=$((applied + 1)); eval "CA_$cat=\$((CA_$cat + 1))"
-	fi
+	case "$state" in
+		applied)
+			applied=$((applied + 1)); desired=$((desired + 1))
+			eval "CA_$cat=\$((CA_$cat + 1)); CT_$cat=\$((CT_$cat + 1))" ;;
+		pending|unavailable)
+			desired=$((desired + 1)); eval "CT_$cat=\$((CT_$cat + 1))" ;;
+		match)
+			eval "CM_$cat=\$((CM_$cat + 1))" ;;
+	esac
 	[ "$first" -eq 1 ] || printf ','
 	first=0
 	printf '{"cat":"%s","key":"%s","type":"%s","cur":"%s","rec":"%s","state":"%s"}' \
@@ -44,12 +47,12 @@ printf ',"categories":{'
 first=1
 while IFS='|' read -r cat kind requires; do
 	[ -n "$cat" ] || continue
-	eval "ap=\${CA_$cat}; tot=\${CT_$cat}"
+	eval "ap=\${CA_$cat}; tot=\${CT_$cat}; mt=\${CM_$cat}"
 	if st_cat_enabled "$cat"; then en=1; else en=0; fi
 	[ "$first" -eq 1 ] || printf ','
 	first=0
-	printf '"%s":{"kind":"%s","requires":"%s","enabled":%s,"applied":%s,"total":%s}' \
-		"$cat" "$kind" "$(js "$requires")" "$en" "$ap" "$tot"
+	printf '"%s":{"kind":"%s","requires":"%s","enabled":%s,"applied":%s,"total":%s,"match":%s}' \
+		"$cat" "$kind" "$(js "$requires")" "$en" "$ap" "$tot" "$mt"
 done <<EOF
 $(st_catmeta)
 EOF

@@ -170,8 +170,12 @@ return view.extend({
 			var tb = this.tbodies[cat];
 			if (tb) dom.content(tb, (byCat[cat] || []).map(L.bind(st.paramRow, st)));
 			var ci = (data.categories || {})[cat];
-			if (ci && this.counters[cat])
-				dom.content(this.counters[cat], (ci.total > 0) ? (ci.applied + '/' + ci.total) : '');
+			if (ci && this.counters[cat]) {
+				var label = '';
+				if (ci.total > 0) label = ci.applied + '/' + ci.total;
+				else if (ci.match > 0) label = _('%d matching').format(ci.match);
+				dom.content(this.counters[cat], label);
+			}
 		}, this));
 	},
 
