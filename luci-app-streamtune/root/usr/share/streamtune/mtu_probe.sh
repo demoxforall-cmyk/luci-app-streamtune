@@ -45,10 +45,14 @@ if [ "$method" != "iface" ]; then
 	done
 fi
 
-# fallback: текущий MTU интерфейса
+# fallback без tracepath/DF-ping: carrier-MTU из mmcli, затем MTU интерфейса
 if [ "$best" -eq 0 ] 2>/dev/null; then
-	[ -n "$ND" ] && [ -r "/sys/class/net/$ND/mtu" ] && best=$(cat "/sys/class/net/$ND/mtu" 2>/dev/null)
-	method="iface"
+	cm=$(st_modem_mtu)
+	if [ -n "$cm" ] && [ "$cm" -gt 0 ] 2>/dev/null; then
+		best="$cm"; method="carrier"
+	elif [ -n "$ND" ] && [ -r "/sys/class/net/$ND/mtu" ]; then
+		best=$(cat "/sys/class/net/$ND/mtu" 2>/dev/null); method="iface"
+	fi
 fi
 [ -n "$best" ] && [ "$best" -gt 0 ] 2>/dev/null || best=0
 

@@ -8,11 +8,11 @@ LUCI_TITLE:=Stream Optimizer — tune network stack for low-latency audio stream
 # (форма без '+', версия >=0): при ОНЛАЙН-установке `apk add` сам докачает их из
 # репозитория ImmortalWRT и они НЕ требуют сборки в SDK.
 LUCI_DEPENDS:=+luci-base
-# kmod-tcp-bbr подтягивается онлайн (нужен для профильного bbr); irqbalance
-# НЕ форсим — он всегда OFF (на 2 ядрах нейтрально/вредно), детектится по факту.
-LUCI_EXTRA_DEPENDS:=kmod-tcp-bbr (>=0)
+# kmod-tcp-bbr — профильный BBR; iputils-tracepath — точная проба path MTU
+# (BusyBox ping не умеет DF). irqbalance НЕ форсим (всегда OFF, детектится).
+LUCI_EXTRA_DEPENDS:=kmod-tcp-bbr (>=0), iputils-tracepath (>=0)
 LUCI_PKGARCH:=all
-PKG_VERSION:=2.0
+PKG_VERSION:=2.1
 PKG_LICENSE:=GPL-2.0
 PKG_MAINTAINER:=StreamTune project
 

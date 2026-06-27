@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 2.1
+- **Скрипт проверки** `verify.sh` (`sh /usr/share/streamtune/verify.sh`): сверяет
+  применённое состояние (sysctl, qdisc, BBR+версия, nft-MSS, MTU на WAN, полное
+  отключение IPv6, flow offload, conntrack) и сканирует логи (fw4/odhcpd/modem).
+- **Починка пробы MTU:**
+  - `iputils-tracepath` добавлен в зависимости (BusyBox ping не умеет DF) →
+    кнопка «Определить MTU» работает из коробки;
+  - `mtu_probe.sh` теперь имеет фолбэк на **carrier-MTU из `mmcli`** (работает
+    и без tracepath на LTE), затем MTU интерфейса;
+  - `st_wan_netdev` резолвит **реальный netdev** через ubus `l3_device` и
+    проверяет `/sys/class/net` (раньше мог вернуть логическое имя «Modem» →
+    «Probe failed»).
+
 ## 2.0
 - Полный пересмотр под **форвардящий роутер (NAT)** на основе пер-параметрического
   анализа (см. [`tuning-lte-audio.md`](tuning-lte-audio.md)).

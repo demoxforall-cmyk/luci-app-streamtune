@@ -184,16 +184,21 @@ st_wan_iface() {
 }
 
 # Kernel netdev WAN (для nft oifname/iifname, ping -I, sysfs).
+# Возвращаем ТОЛЬКО реальный netdev (с /sys/class/net), не логическое имя.
 st_wan_netdev() {
 	[ -n "${ST_WAN_NETDEV:-}" ] && { echo "$ST_WAN_NETDEV"; return; }
+	# 1) netdev модема напрямую из ModemManager (если это реальный netdev)
 	if [ "$(st_profile)" != "home_wired" ]; then
-		_d=$(st_modem_iface); [ -n "$_d" ] && { echo "$_d"; return; }
+		_d=$(st_modem_iface)
+		[ -n "$_d" ] && [ -e "/sys/class/net/$_d" ] && { echo "$_d"; return; }
 	fi
-	# eth/общий: l3_device активного WAN или dev из default route
-	_i=$(st_wan_iface)
-	_d=$(ubus call "network.interface.$_i" status 2>/dev/null | sed -n 's/.*"l3_device": *"\([^"]*\)".*/\1/p' | head -1)
+	# 2) l3_device логического WAN-интерфейса через ubus
+	_d=$(ubus call "network.interface.$(st_wan_iface)" status 2>/dev/null | sed -n 's/.*"l3_device": *"\([^"]*\)".*/\1/p' | head -1)
+	[ -n "$_d" ] && [ -e "/sys/class/net/$_d" ] && { echo "$_d"; return; }
+	# 3) интерфейс default route
+	_d=$(ip -o route show default 2>/dev/null | sed -n 's/.* dev \([^ ]*\).*/\1/p' | head -1)
 	[ -n "$_d" ] && { echo "$_d"; return; }
-	ip -o route show default 2>/dev/null | sed -n 's/.* dev \([^ ]*\).*/\1/p' | head -1
+	echo ""
 }
 
 st_wan_zone() {
