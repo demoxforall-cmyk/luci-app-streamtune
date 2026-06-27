@@ -34,7 +34,7 @@ return view.extend({
 		this.counters = {};
 		this.profileBtns = {};
 		this.draft = this.cfgToDraft(data.config || {});
-		this.savedProfile = (data.config && data.config.profile) || 'generic';
+		this.savedProfile = (data.config && data.config.profile) || 'lte_audio';
 		this.caps = data.caps || {};
 
 		this.gaugeBox = E('div', { 'class': 'st-gauge-box' });
@@ -42,7 +42,7 @@ return view.extend({
 
 		/* селектор профиля */
 		var seg = E('div', { 'class': 'st-seg' });
-		[ [ 'generic', _('Generic') ], [ 'lte_audio', _('Auto LTE / audio') ] ].forEach(L.bind(function(o) {
+		[ [ 'lte_audio', st.PROFILE_NAMES.lte_audio ], [ 'home_wired', st.PROFILE_NAMES.home_wired ] ].forEach(L.bind(function(o) {
 			var b = E('button', {
 				'class': 'st-seg-btn' + (this.draft.profile === o[0] ? ' st-on' : ''),
 				'click': ui.createHandlerFn(this, 'handleProfile', o[0])
@@ -160,6 +160,13 @@ return view.extend({
 			body.appendChild(E('div', { 'class': 'st-subopt' }, [
 				E('span', {}, _('WAN interface (blank = auto)')), wanIn
 			]));
+			this.probeResult = E('span', { 'class': 'st-sub-note' });
+			body.appendChild(E('div', { 'class': 'st-subopt' }, [
+				E('button', { 'class': 'btn cbi-button-action',
+					'click': ui.createHandlerFn(this, 'handleProbe') },
+					[ st.icon('refresh'), _('Determine optimal MTU') ]),
+				this.probeResult
+			]));
 		}
 
 		var tbody = E('tbody');
@@ -227,7 +234,7 @@ return view.extend({
 
 	collect: function() {
 		var d = this.draft, b = function(v) { return v ? '1' : '0'; };
-		return [ d.profile || 'generic', b(d.net_buffers), b(d.low_latency), b(d.backlog),
+		return [ d.profile || 'lte_audio', b(d.net_buffers), b(d.low_latency), b(d.backlog),
 		         b(d.congestion), b(d.flow_offload), b(d.flow_offload_hw), b(d.conntrack),
 		         b(d.irqbalance), b(d.disable_ipv6), b(d.mobile_lte), d.wan_iface || '' ];
 	},
@@ -256,13 +263,24 @@ return view.extend({
 		var preset = st.PROFILES[prof] || {};
 		Object.keys(preset).forEach(L.bind(function(k) { this.draft[k] = preset[k]; }, this));
 		this.syncToggles();
-		var name = (prof === 'lte_audio') ? _('Auto LTE / audio') : _('Generic');
+		var name = st.PROFILE_NAMES[prof] || prof;
 		ui.addNotification(null, E('p', {}, _('Profile “%s” selected. Press “Apply selected” to activate.').format(name)), 'info');
 		return Promise.resolve();
 	},
 
+	handleProbe: function() {
+		if (this.probeResult) dom.content(this.probeResult, _('Probing…'));
+		return L.resolveDefault(st.rpc.probe(), {}).then(L.bind(function(res) {
+			if (!this.probeResult) return;
+			if (res && res.mtu > 0)
+				dom.content(this.probeResult, _('Path MTU: %s (%s) → MSS %s. Apply to set it.').format(res.mtu, res.method || '?', res.mss));
+			else
+				dom.content(this.probeResult, _('Probe failed — install iputils-tracepath'));
+		}, this));
+	},
+
 	handleRevert: function() {
-		if (!confirm(_('Revert all StreamTune optimizations and reset to the Generic profile?')))
+		if (!confirm(_('Revert all StreamTune optimizations and turn all toggles off?')))
 			return Promise.resolve();
 		return st.rpc.revert()
 			.then(L.bind(function() {
@@ -271,7 +289,7 @@ return view.extend({
 			.then(L.bind(this.load, this))
 			.then(L.bind(function(data) {
 				this.draft = this.cfgToDraft(data.config || {});
-				this.savedProfile = (data.config && data.config.profile) || 'generic';
+				this.savedProfile = (data.config && data.config.profile) || 'lte_audio';
 				this.syncToggles();
 				this.renderStatus(data);
 			}, this));

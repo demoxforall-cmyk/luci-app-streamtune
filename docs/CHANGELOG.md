@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## 2.0
+- Полный пересмотр под **форвардящий роутер (NAT)** на основе пер-параметрического
+  анализа (см. [`tuning-lte-audio.md`](tuning-lte-audio.md)).
+- **Профили: «Авто LTE» + «Дом, провод»** («Базовый» убран). Значения выверены:
+  буферы 4 МБ; серверные TIME_WAIT/backlog-крутилки и 16 МБ `*_default` →
+  дефолт ядра (не управляем); `udp_*_min`=8192.
+- **Новая категория «Mobile LTE link»**:
+  - **MTU auto-probe** — DF-проба/`tracepath` + carrier-MTU из `mmcli`, берётся min;
+  - **MSS-clamp** через явное **pbr-safe nftables-правило** (`oifname`+`iifname` WAN,
+    `tcp option maxseg size set rt mtu`, обе стороны) вместо зонного `mtu_fix` —
+    корректно при Podkop/policy-routing;
+  - **conntrack established timeout = 7440**.
+- `default_qdisc` → **fq_codel** (не fq); **fq_codel больше не завязан на BBR** (фикс:
+  пропуск bbr по ключу, а не по категории).
+- **Полное отключение IPv6**: стек + WAN `ipv6=0` + все DHCP-пулы
+  (`dhcpv6`/`ra`/`ndp`=disabled) + удаление ULA + `odhcpd disable/stop`.
+- **WAN-детект профиле-зависимый**: модем через **ModemManager** (`mmcli`), eth-WAN
+  для дома, fallback по default route; ручной override `wan_iface`.
+- HW/SW **flow offload off** (несовместимы с AQM + конфликт с policy-routing Podkop).
+- `kmod-tcp-bbr` остаётся зависимостью (стандартное ядро); **`irqbalance` убран из
+  зависимостей** (всегда off — на 2 ядрах нейтрально/вредно).
+- Кнопка **«Определить оптимальный MTU»** (rpcd `probe_mtu`).
+- BBR-версия по размеру `tcp_bbr.ko` (modinfo в OpenWRT вырезан).
+
 ## 1.3
 - **Определение версии BBR переделано на размер модуля.** OpenWRT вырезает
   `.modinfo` из модулей, поэтому `version`/`srcversion` отсутствуют — прежний

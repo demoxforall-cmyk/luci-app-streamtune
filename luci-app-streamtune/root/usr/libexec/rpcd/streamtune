@@ -19,7 +19,7 @@ ensure_cfg() {
 case "$1" in
 	list)
 		cat <<JSON
-{ "get_status":{}, "get_boot":{},
+{ "get_status":{}, "get_boot":{}, "probe_mtu":{},
   "apply":{ "profile":"", "net_buffers":"", "low_latency":"", "backlog":"", "congestion":"",
             "flow_offload":"", "flow_offload_hw":"", "conntrack":"", "irqbalance":"",
             "disable_ipv6":"", "mobile_lte":"", "wan_iface":"" },
@@ -34,6 +34,9 @@ JSON
 			get_boot)
 				# таймлайн загрузки + сведения о системе
 				sh "$ST_SHARE/boot.sh" ;;
+			probe_mtu)
+				# определить path MTU к интернету (DF-проба / tracepath)
+				sh "$ST_SHARE/mtu_probe.sh" ;;
 			apply)
 				read -r input
 				json_load "$input"
@@ -50,7 +53,7 @@ JSON
 				# профиль (только известные значения)
 				json_get_var prof profile
 				case "$prof" in
-					generic|lte_audio) uci set "streamtune.global.profile=$prof" ;;
+					lte_audio|home_wired) uci set "streamtune.global.profile=$prof" ;;
 				esac
 				# WAN-интерфейс (опционально, валидное имя секции UCI)
 				json_get_var wif wan_iface

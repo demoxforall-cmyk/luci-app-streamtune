@@ -373,6 +373,28 @@ msgstr "Версия BBR в ядре"
 msgid "Detected from tcp_bbr.ko size: %s B (modinfo is stripped on OpenWRT)"
 msgstr "Определено по размеру tcp_bbr.ko: %s Б (modinfo в OpenWRT вырезан)"
 
+# ---- v2.0: два профиля, проба MTU ----
+msgid "Auto LTE"
+msgstr "Авто LTE"
+
+msgid "Home, wired"
+msgstr "Дом, провод"
+
+msgid "Determine optimal MTU"
+msgstr "Определить оптимальный MTU"
+
+msgid "Probing…"
+msgstr "Зондирование…"
+
+msgid "Path MTU: %s (%s) → MSS %s. Apply to set it."
+msgstr "Path MTU: %s (%s) → MSS %s. Нажмите «Применить», чтобы задать."
+
+msgid "Probe failed — install iputils-tracepath"
+msgstr "Проба не удалась — установите iputils-tracepath"
+
+msgid "Revert all StreamTune optimizations and turn all toggles off?"
+msgstr "Сбросить все оптимизации StreamTune и выключить все тумблеры?"
+
 msgid "A router only forwards your phone’s streams — it is not the TCP endpoint. So TCP/buffer sysctls (tagged “router-only”) affect only the router’s own traffic, not the audio stream."
 msgstr "Роутер лишь форвардит потоки телефона — он не является TCP-эндпоинтом. Поэтому TCP/буферные sysctl (с тегом «только роутер») влияют лишь на собственный трафик роутера, а не на аудиопоток."
 

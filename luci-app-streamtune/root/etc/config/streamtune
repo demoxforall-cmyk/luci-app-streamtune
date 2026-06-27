@@ -1,21 +1,20 @@
 config streamtune 'global'
-	# активный профиль: generic | lte_audio
-	option profile 'generic'
-	# WAN-интерфейс для MTU/MSS (пусто = автоопределение)
+	# активный профиль: lte_audio | home_wired
+	option profile 'lte_audio'
+	# WAN-интерфейс/netdev вручную (пусто = автоопределение, модем через mmcli)
 	option wan_iface ''
-	# безопасный профиль включён по умолчанию
+	# общий пресет (lte_audio и home_wired сейчас совпадают по тумблерам)
 	option net_buffers '1'
 	option low_latency '1'
-	option backlog '1'
-	option conntrack '1'
-	option flow_offload '1'
-	# опциональные/рискованные — выключены по умолчанию
+	option backlog '0'
+	option congestion '1'
+	option flow_offload '0'
 	option flow_offload_hw '0'
-	option congestion '0'
+	option conntrack '1'
 	option irqbalance '0'
-	option disable_ipv6 '0'
+	option disable_ipv6 '1'
+	option mobile_lte '1'
 	# целевой размер хэш-таблицы conntrack
 	option hashsize '16384'
-	# порог размера tcp_bbr.ko (байт) для определения v1/v3 (modinfo вырезан в OpenWRT);
-	# > порога => BBR v3. Дефолт под ImmortalWRT 25.12 mediatek (сток v1 ~13856).
+	# порог размера tcp_bbr.ko (байт) для v1/v3 (modinfo вырезан в OpenWRT)
 	option bbr_v1_maxsize '14500'

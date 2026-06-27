@@ -1,4 +1,4 @@
-profile=lte_audio
+profile=home_wired
 net_buffers=1
 low_latency=1
 backlog=0

@@ -126,7 +126,7 @@ return view.extend({
 				[ _('RAM available'), mb(sys.mem_free_kb || 0) ],
 				[ _('Tracked connections'), (sys.conntrack_count != null)
 					? ((sys.conntrack_count || 0) + ' / ' + (sys.conntrack_max || '—')) : '—' ],
-				[ _('Active profile'), (cfg.profile === 'lte_audio') ? _('Auto LTE / audio') : _('Generic') ],
+				[ _('Active profile'), (st.PROFILE_NAMES && st.PROFILE_NAMES[cfg.profile]) || cfg.profile || '—' ],
 				[ _('BBR'), st.bbrText(caps) ],
 				[ _('WAN interface'), caps.wan ? caps.wan : '—' ]
 			]) ])

@@ -6,11 +6,12 @@
  * визуальные хелперы (бейджи статуса, кольцо оценки, иконки), загрузка CSS.
  * Реестр параметров — зеркало root/usr/share/streamtune/lib.sh. */
 
-var ST_VER = '1.3';
+var ST_VER = '2.0';
 
 var callStatus = rpc.declare({ object: 'streamtune', method: 'get_status' });
 var callBoot   = rpc.declare({ object: 'streamtune', method: 'get_boot' });
 var callRevert = rpc.declare({ object: 'streamtune', method: 'revert' });
+var callProbe  = rpc.declare({ object: 'streamtune', method: 'probe_mtu' });
 var callApply  = rpc.declare({
 	object: 'streamtune', method: 'apply',
 	params: [ 'profile', 'net_buffers', 'low_latency', 'backlog', 'congestion',
@@ -22,15 +23,13 @@ var callApply  = rpc.declare({
 var CATS = [ 'net_buffers', 'low_latency', 'backlog', 'congestion',
              'flow_offload', 'conntrack', 'irqbalance', 'disable_ipv6', 'mobile_lte' ];
 
-/* Пресеты профилей: значения тумблеров категорий */
-var PROFILES = {
-	generic:   { net_buffers: 1, low_latency: 1, backlog: 1, congestion: 0,
-	             flow_offload: 1, flow_offload_hw: 0, conntrack: 1, irqbalance: 0,
-	             disable_ipv6: 0, mobile_lte: 0 },
-	lte_audio: { net_buffers: 1, low_latency: 1, backlog: 0, congestion: 1,
-	             flow_offload: 0, flow_offload_hw: 0, conntrack: 1, irqbalance: 0,
-	             disable_ipv6: 0, mobile_lte: 1 }
-};
+/* Пресеты профилей: значения тумблеров категорий (lte_audio и home_wired
+ * сейчас совпадают; различия — авто-MTU и WAN-интерфейс, оба автоопределяются) */
+var PROFILE_PRESET = { net_buffers: 1, low_latency: 1, backlog: 0, congestion: 1,
+	flow_offload: 0, flow_offload_hw: 0, conntrack: 1, irqbalance: 0,
+	disable_ipv6: 1, mobile_lte: 1 };
+var PROFILES = { lte_audio: PROFILE_PRESET, home_wired: PROFILE_PRESET };
+var PROFILE_NAMES = { lte_audio: _('Auto LTE'), home_wired: _('Home, wired') };
 
 /* Параметры, влияющие ТОЛЬКО на трафик самого роутера (не на форвардимый поток) */
 var ROUTER_ONLY = {
@@ -140,10 +139,12 @@ return baseclass.extend({
 		status: callStatus,
 		boot:   callBoot,
 		apply:  callApply,
-		revert: callRevert
+		revert: callRevert,
+		probe:  callProbe
 	},
 
 	PROFILES: PROFILES,
+	PROFILE_NAMES: PROFILE_NAMES,
 
 	catMeta:  function(id)  { return CATMETA[id] || { icon: 'info', title: id, desc: '' }; },
 	pLabel:   function(key) { return PLABEL[key] || key; },

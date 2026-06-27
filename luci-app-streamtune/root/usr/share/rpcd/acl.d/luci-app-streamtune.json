@@ -3,7 +3,7 @@
 		"description": "Access to StreamTune network-stack optimization",
 		"read": {
 			"ubus": {
-				"streamtune": [ "get_status", "get_boot" ]
+				"streamtune": [ "get_status", "get_boot", "probe_mtu" ]
 			}
 		},
 		"write": {
