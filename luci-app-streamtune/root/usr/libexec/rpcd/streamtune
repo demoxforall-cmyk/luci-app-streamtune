@@ -22,7 +22,7 @@ case "$1" in
 { "get_status":{}, "get_boot":{}, "probe_mtu":{},
   "apply":{ "profile":"", "net_buffers":"", "low_latency":"", "backlog":"", "congestion":"",
             "flow_offload":"", "flow_offload_hw":"", "conntrack":"", "irqbalance":"",
-            "disable_ipv6":"", "mobile_lte":"", "wan_iface":"" },
+            "disable_ipv6":"", "mobile_lte":"", "wan_iface":"", "mtu":"" },
   "revert":{} }
 JSON
 		;;
@@ -61,6 +61,13 @@ JSON
 					"" ) : ;;
 					*[!a-zA-Z0-9_]* ) : ;;
 					* ) uci set "streamtune.global.wan_iface=$wif" ;;
+				esac
+				# MTU: 'auto' или число 576..9000
+				json_get_var mtuv mtu
+				case "$mtuv" in
+					auto) uci set "streamtune.global.mtu=auto" ;;
+					''|*[!0-9]*) : ;;
+					*) [ "$mtuv" -ge 576 ] && [ "$mtuv" -le 9000 ] && uci set "streamtune.global.mtu=$mtuv" ;;
 				esac
 				uci commit streamtune
 				sh "$ST_SHARE/apply.sh" apply ;;

@@ -37,5 +37,14 @@ echo "[no bbr]"
 assert_has "$outn" '"key":"net.ipv4.tcp_congestion_control","type":"sysctl","cur":"cubic","rec":"bbr","state":"unavailable"' "cc unavailable without bbr"
 assert_has "$outn" '"key":"net.core.default_qdisc","type":"sysctl","cur":"fq_codel","rec":"fq_codel","state":"applied"' "fq_codel still applied (decoupled)"
 
+# --- MTU override (ручное число вместо auto) ---
+TMPC=$(mktemp 2>/dev/null || echo "/tmp/st_cfgm_$$"); cp "$FIX/cfg_lte.txt" "$TMPC"; echo "mtu=1430" >> "$TMPC"
+outm=$(ST_SHARE="$SH_DIR" ST_PROC_ROOT="$PROC" ST_CFG_FILE="$TMPC" ST_CAPS_FILE="$FIX/caps_bbr.txt" \
+	ST_SYSFS_HASHSIZE="$FIX/hashsize.txt" ST_NET_FILE="$FIX/net_default.txt" \
+	ST_WAN_IFACE=wwan ST_WAN_NETDEV=wwan0 ST_NFT_MSS="$FIX/_nomss" sh "$SH_DIR/detect.sh")
+echo "[mtu override]"
+assert_has "$outm" '"key":"link.mtu","type":"mtu","cur":"1500","rec":"1430","state":"pending"' "MTU override -> rec=1430"
+rm -f "$TMPC"
+
 [ "$T_FAIL" -eq 0 ] && echo "run_detect: PASS" || echo "run_detect: FAIL"
 exit "$T_FAIL"

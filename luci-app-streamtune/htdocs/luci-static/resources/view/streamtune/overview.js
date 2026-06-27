@@ -94,8 +94,9 @@ return view.extend({
 		var d = {};
 		st.CATS.forEach(function(c) { d[c] = (cfg[c] === '1' || cfg[c] === 1) ? 1 : 0; });
 		d.flow_offload_hw = (cfg.flow_offload_hw === '1' || cfg.flow_offload_hw === 1) ? 1 : 0;
-		d.profile = cfg.profile || 'generic';
+		d.profile = cfg.profile || 'lte_audio';
 		d.wan_iface = cfg.wan_iface || '';
+		d.mtu = cfg.mtu || 'auto';
 		return d;
 	},
 
@@ -224,6 +225,9 @@ return view.extend({
 				dom.content(this.counters[cat], label);
 			}
 		}, this));
+
+		/* пробитый/ручной MTU показываем в «Рекомендовано» */
+		if (this.draft && this.draft.mtu && this.draft.mtu !== 'auto') this.setMtuRec(this.draft.mtu);
 	},
 
 	updateHint: function() {
@@ -236,7 +240,7 @@ return view.extend({
 		var d = this.draft, b = function(v) { return v ? '1' : '0'; };
 		return [ d.profile || 'lte_audio', b(d.net_buffers), b(d.low_latency), b(d.backlog),
 		         b(d.congestion), b(d.flow_offload), b(d.flow_offload_hw), b(d.conntrack),
-		         b(d.irqbalance), b(d.disable_ipv6), b(d.mobile_lte), d.wan_iface || '' ];
+		         b(d.irqbalance), b(d.disable_ipv6), b(d.mobile_lte), d.wan_iface || '', d.mtu || 'auto' ];
 	},
 
 	report: function(res) {
@@ -271,12 +275,23 @@ return view.extend({
 	handleProbe: function() {
 		if (this.probeResult) dom.content(this.probeResult, _('Probing…'));
 		return L.resolveDefault(st.rpc.probe(), {}).then(L.bind(function(res) {
-			if (!this.probeResult) return;
-			if (res && res.mtu > 0)
-				dom.content(this.probeResult, _('Path MTU: %s (%s) → MSS %s. Apply to set it.').format(res.mtu, res.method || '?', res.mss));
-			else
-				dom.content(this.probeResult, _('Probe failed — install iputils-tracepath'));
+			if (res && res.mtu > 0) {
+				this.draft.mtu = '' + res.mtu;
+				this.setMtuRec(this.draft.mtu);
+				if (this.probeResult)
+					dom.content(this.probeResult, _('Path MTU: %s (%s) → MSS %s. Press “Apply selected” to set it.').format(res.mtu, res.method || '?', res.mss));
+			} else if (this.probeResult) {
+				dom.content(this.probeResult, _('Probe failed — install iputils-ping'));
+			}
 		}, this));
+	},
+
+	/* Подставить значение MTU в колонку «Рекомендовано» строки link.mtu */
+	setMtuRec: function(val) {
+		var tb = this.tbodies && this.tbodies.mobile_lte;
+		if (!tb) return;
+		var cell = tb.querySelector('tr[data-key="link.mtu"] .st-prec');
+		if (cell) cell.textContent = val;
 	},
 
 	handleRevert: function() {

@@ -6,7 +6,7 @@
  * визуальные хелперы (бейджи статуса, кольцо оценки, иконки), загрузка CSS.
  * Реестр параметров — зеркало root/usr/share/streamtune/lib.sh. */
 
-var ST_VER = '2.1';
+var ST_VER = '2.2';
 
 var callStatus = rpc.declare({ object: 'streamtune', method: 'get_status' });
 var callBoot   = rpc.declare({ object: 'streamtune', method: 'get_boot' });
@@ -16,7 +16,7 @@ var callApply  = rpc.declare({
 	object: 'streamtune', method: 'apply',
 	params: [ 'profile', 'net_buffers', 'low_latency', 'backlog', 'congestion',
 	          'flow_offload', 'flow_offload_hw', 'conntrack', 'irqbalance',
-	          'disable_ipv6', 'mobile_lte', 'wan_iface' ]
+	          'disable_ipv6', 'mobile_lte', 'wan_iface', 'mtu' ]
 });
 
 /* Порядок и метаданные категорий (тумблеров) */
@@ -194,7 +194,7 @@ return baseclass.extend({
 		if (this.routerOnly(p.key))
 			nameKids.push(E('span', { 'class': 'st-tag st-tag-ro', 'title': _('Affects only traffic the router itself originates (DNS, updates) — not devices streaming through it.') }, _('router-only')));
 		var name = E('td', { 'class': 'st-pname' }, nameKids);
-		return E('tr', { 'class': 'st-prow st-row-' + p.state }, [
+		return E('tr', { 'class': 'st-prow st-row-' + p.state, 'data-key': p.key }, [
 			name,
 			E('td', { 'class': 'st-prec' }, (p.rec === '' || p.rec == null) ? '—' : '' + p.rec),
 			E('td', { 'class': 'st-pcur' }, this.fmtCur(p)),

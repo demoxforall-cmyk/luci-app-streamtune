@@ -103,7 +103,8 @@ st_recommended() {
 	_eff=$(st_effval "$2" "$3")
 	[ "$_eff" = "@default" ] && { echo "@default"; return; }
 	[ "$1" = "nf_conntrack.hashsize" ] && { st_hashsize; return; }
-	[ "$1" = "link.mtu" ] && [ "$_eff" = "auto" ] && { echo "auto"; return; }
+	# link.mtu: ручной/пробитый override (UCI mtu) перекрывает профильный 'auto'
+	[ "$1" = "link.mtu" ] && { echo "$(st_cfg mtu "$_eff")"; return; }
 	echo "$_eff"
 }
 
@@ -142,12 +143,18 @@ st_uci_cellular_iface() {
 	echo ""
 }
 
+# DBus-путь активного bearer (формат ключа `...bearers.value[1]` со скобками).
+st_modem_bearer() {
+	command -v mmcli >/dev/null 2>&1 || return 0
+	_m=$(mmcli -L 2>/dev/null | sed -n 's#.*/Modem/\([0-9][0-9]*\).*#\1#p' | head -1)
+	[ -n "$_m" ] || return 0
+	mmcli -m "$_m" -K 2>/dev/null | grep 'generic.bearers.value' \
+		| grep -o '/org/[^ ]*Bearer/[0-9][0-9]*' | head -1
+}
+
 # netdev модема (напр. wwan0) через ModemManager; fallback — UCI-интерфейс.
 st_modem_iface() {
-	command -v mmcli >/dev/null 2>&1 || { st_uci_cellular_iface; return; }
-	_m=$(mmcli -L 2>/dev/null | sed -n 's#.*/Modem/\([0-9][0-9]*\).*#\1#p' | head -1)
-	[ -n "$_m" ] || { st_uci_cellular_iface; return; }
-	_b=$(mmcli -m "$_m" -K 2>/dev/null | sed -n 's/^modem\.generic\.bearers\.value\.1 *: *//p' | head -1)
+	_b=$(st_modem_bearer)
 	_if=""
 	[ -n "$_b" ] && _if=$(mmcli -b "$_b" -K 2>/dev/null | sed -n 's/^bearer\.status\.interface *: *//p')
 	[ -n "$_if" ] && echo "$_if" || st_uci_cellular_iface
@@ -156,10 +163,7 @@ st_modem_iface() {
 # carrier-MTU, выданный оператором (через MM); пусто если недоступно.
 st_modem_mtu() {
 	[ -n "${ST_MODEM_MTU:-}" ] && { echo "$ST_MODEM_MTU"; return; }
-	command -v mmcli >/dev/null 2>&1 || return 0
-	_m=$(mmcli -L 2>/dev/null | sed -n 's#.*/Modem/\([0-9][0-9]*\).*#\1#p' | head -1)
-	[ -n "$_m" ] || return 0
-	_b=$(mmcli -m "$_m" -K 2>/dev/null | sed -n 's/^modem\.generic\.bearers\.value\.1 *: *//p' | head -1)
+	_b=$(st_modem_bearer)
 	[ -n "$_b" ] && mmcli -b "$_b" -K 2>/dev/null | sed -n 's/^bearer\.ipv4-config\.mtu *: *//p'
 }
 

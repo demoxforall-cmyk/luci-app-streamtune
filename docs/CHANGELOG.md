@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## 2.2
+- Кнопка **«Определить оптимальный MTU»** теперь **подставляет найденное значение
+  в колонку «Рекомендовано»** строки MTU и сохраняет его (UCI `mtu`) при
+  «Применить выбранное» — раньше результат показывался лишь сбоку, а в реестре
+  оставался `auto`.
+- MTU стал переопределяемым: `streamtune.global.mtu` = `auto` (проба) или число
+  (576..9000); `apply` пишет его, `detect` показывает в «Рекомендовано».
+- **Починка carrier-MTU из `mmcli`:** ключ bearer имеет формат
+  `modem.generic.bearers.value[1]` (квадратные скобки), а парсер искал `value.1`
+  (точка) → bearer не находился, carrier-MTU не читался. Добавлен
+  `st_modem_bearer()` (берёт DBus-путь bearer независимо от формата индекса),
+  `st_modem_iface`/`st_modem_mtu` используют его.
+- **Проба MTU переписана** (`mtu_probe.sh`): приоритет — **carrier-MTU оператора**
+  (через `mmcli`, авторитетно для сотового и не требует ICMP) + **DF-ping**
+  (бинарный поиск, устойчив к фильтрации ICMP), `tracepath -m 12` как запасной;
+  итог = `min(measured, carrier)`. Прежний код звал `tracepath` с чужими опциями
+  `-I`/`-m <MTU>` (это опции `ping`; у `tracepath` `-m` — это max-hops 0..255) →
+  «invalid argument: out of range» и фолбэк на MTU интерфейса.
+- Зависимость **`iputils-tracepath` → `iputils-ping`**: BusyBox `ping` не умеет
+  `-M do`, а `iputils-ping` надёжнее `tracepath` при фильтрации ICMP на сотовых.
+
 ## 2.1
 - **Скрипт проверки** `verify.sh` (`sh /usr/share/streamtune/verify.sh`): сверяет
   применённое состояние (sysctl, qdisc, BBR+версия, nft-MSS, MTU на WAN, полное

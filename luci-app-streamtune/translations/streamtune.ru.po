@@ -389,8 +389,14 @@ msgstr "Зондирование…"
 msgid "Path MTU: %s (%s) → MSS %s. Apply to set it."
 msgstr "Path MTU: %s (%s) → MSS %s. Нажмите «Применить», чтобы задать."
 
+msgid "Path MTU: %s (%s) → MSS %s. Press “Apply selected” to set it."
+msgstr "Path MTU: %s (%s) → MSS %s. Нажмите «Применить выбранное», чтобы задать."
+
 msgid "Probe failed — install iputils-tracepath"
 msgstr "Проба не удалась — установите iputils-tracepath"
+
+msgid "Probe failed — install iputils-ping"
+msgstr "Проба не удалась — установите iputils-ping"
 
 msgid "Revert all StreamTune optimizations and turn all toggles off?"
 msgstr "Сбросить все оптимизации StreamTune и выключить все тумблеры?"

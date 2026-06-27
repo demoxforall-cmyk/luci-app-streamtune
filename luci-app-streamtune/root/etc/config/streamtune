@@ -14,6 +14,8 @@ config streamtune 'global'
 	option irqbalance '0'
 	option disable_ipv6 '1'
 	option mobile_lte '1'
+	# MTU на WAN: 'auto' (проба) или конкретное число (заполняется кнопкой пробы)
+	option mtu 'auto'
 	# целевой размер хэш-таблицы conntrack
 	option hashsize '16384'
 	# порог размера tcp_bbr.ko (байт) для v1/v3 (modinfo вырезан в OpenWRT)
