@@ -110,6 +110,12 @@ return view.extend({
 	/* Текст ячейки «Рекомендовано» (MTU подменяем пробитым/ручным значением) */
 	recText: function(p) {
 		if (p.key === 'link.mtu' && this.draft.mtu && this.draft.mtu !== 'auto') return '' + this.draft.mtu;
+		if (p.type === 'service') {
+			if (p.key === 'service.irqbalance' && p.rec === 'stopped') return _('stopped / not installed');
+			if (p.rec === 'running') return _('running');
+			if (p.rec === 'stopped') return _('stopped');
+		}
+		if (p.type === 'wanipv6' || p.type === 'dhcp6' || p.type === 'ula') return _('disabled / removed');
 		return (p.rec === '' || p.rec == null) ? '—' : '' + p.rec;
 	},
 
@@ -125,11 +131,11 @@ return view.extend({
 		this.paramSw[p.key] = sw;
 
 		var tr = E('tr', { 'class': 'st-prow st-row-' + p.state, 'data-key': p.key }, [
-			E('td', { 'class': 'st-psw' }, [ E('label', { 'class': 'st-switch st-switch-sm' }, [ sw, E('span', { 'class': 'st-slider' }) ]) ]),
 			st.pNameCell(p.key),
 			E('td', { 'class': 'st-prec' }, this.recText(p)),
 			E('td', { 'class': 'st-pcur' }, st.fmtCur(p)),
-			E('td', { 'class': 'st-pst' }, [ st.statusBadge(p.state) ])
+			E('td', { 'class': 'st-pst' }, [ st.statusBadge(p.state) ]),
+			E('td', { 'class': 'st-psw' }, [ E('label', { 'class': 'st-switch st-switch-sm' }, [ sw, E('span', { 'class': 'st-slider' }) ]) ])
 		]);
 		this.paramRows[p.key] = tr;
 		return tr;
@@ -206,11 +212,11 @@ return view.extend({
 		this.tbodies[cat] = tbody;
 		body.appendChild(E('table', { 'class': 'st-table' }, [
 			E('thead', {}, E('tr', {}, [
-				E('th', { 'class': 'st-th-sw' }, _('On')),
 				E('th', {}, _('Parameter')),
 				E('th', {}, _('Recommended')),
 				E('th', {}, _('Current')),
-				E('th', {}, _('Status'))
+				E('th', {}, _('Status')),
+				E('th', { 'class': 'st-th-sw' }, _('On'))
 			])),
 			tbody
 		]));

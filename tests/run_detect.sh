@@ -21,7 +21,6 @@ assert_has "$out" '"profile":"lte_audio"' "profile lte_audio"
 assert_has "$out" '"key":"net.core.rmem_max","type":"sysctl","cur":"16777216","rec":"4194304","state":"off","enabled":1' "rmem_max -> 4M, off"
 assert_has "$out" '"key":"net.core.rmem_default","type":"sysctl","cur":"16777216","rec":"262144"' "rmem_default -> 262144 (был @default)"
 assert_has "$out" '"key":"net.ipv4.tcp_max_tw_buckets","type":"sysctl","cur":"2000000","rec":"65536"' "tw_buckets -> 65536"
-assert_has "$out" '"key":"net.core.netdev_budget_usecs","type":"sysctl","cur":"","rec":"4000","state":"off","enabled":1' "netdev_budget_usecs -> 4000 (новый)"
 assert_has "$out" '"key":"net.ipv4.tcp_tw_reuse","type":"sysctl","cur":"1","rec":"1","state":"match"' "tw_reuse=1 matches"
 assert_has "$out" '"key":"net.core.default_qdisc","type":"sysctl","cur":"fq_codel","rec":"fq_codel","state":"match"' "fq_codel matches"
 assert_has "$out" '"key":"net.ipv4.tcp_congestion_control","type":"sysctl","cur":"cubic","rec":"bbr","state":"off"' "bbr off"
@@ -35,6 +34,22 @@ assert_has "$out" '"score":{"good":' "score.good present"
 assert_not "$out" '"state":"pending"' "нет статуса pending"
 assert_not "$out" '"state":"unmanaged"' "нет статуса unmanaged"
 assert_not "$out" '@default' "нет @default"
+
+echo "[IPv6: все под-параметры выведены]"
+# в тест-окружении нет uci -> агрегаты по пулам "satisfied"; WAN-фолбэк "wan" не
+# читается -> wanipv6 остаётся off (артефакт без uci) — проверяем только тип/вывод
+assert_has "$out" '"key":"network.wan.ipv6","type":"wanipv6","cur":"default","rec":"0"' "WAN IPv6 выведен (type wanipv6)"
+assert_has "$out" '"key":"dhcp.dhcpv6","type":"dhcp6","cur":"disabled","rec":"disabled","state":"match"' "DHCPv6 (нет пулов -> satisfied -> match)"
+assert_has "$out" '"key":"dhcp.ra","type":"dhcp6"' "RA выведен"
+assert_has "$out" '"key":"dhcp.ndp","type":"dhcp6"' "NDP выведен"
+assert_has "$out" '"key":"network.globals.ula_prefix","type":"ula","cur":"removed","rec":"removed","state":"match"' "ULA (removed -> match)"
+assert_has "$out" '"key":"service.odhcpd","type":"service","cur":"absent","rec":"stopped","state":"match"' "odhcpd absent+rec stopped -> match"
+
+echo "[irqbalance core-aware]"
+out2=$(det "$FIX/cfg_lte.txt" caps_bbr.txt env ST_BBR_KSIZE=13856 ST_CPU_CORES=2)
+assert_has "$out2" '"key":"service.irqbalance","type":"service","cur":"absent","rec":"stopped","state":"match"' "2 ядра: rec stopped, absent -> match"
+out4=$(det "$FIX/cfg_lte.txt" caps_bbr.txt env ST_BBR_KSIZE=13856 ST_CPU_CORES=4)
+assert_has "$out4" '"key":"service.irqbalance","type":"service","cur":"absent","rec":"running","state":"unavailable"' "4 ядра: rec running, absent -> unavailable"
 
 # --- applied: state-файл содержит совпавший параметр => applied (не match) ---
 printf 'net.core.default_qdisc\tcubic\n' > "$STATE"

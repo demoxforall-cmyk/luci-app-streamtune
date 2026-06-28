@@ -44,7 +44,6 @@ low_latency|net.ipv4.tcp_max_syn_backlog|sysctl|net.ipv4.tcp_max_syn_backlog|819
 low_latency|net.ipv4.tcp_max_tw_buckets|sysctl|net.ipv4.tcp_max_tw_buckets|65536|65536
 backlog|net.core.netdev_max_backlog|sysctl|net.core.netdev_max_backlog|5000|5000
 backlog|net.core.netdev_budget|sysctl|net.core.netdev_budget|600|600
-backlog|net.core.netdev_budget_usecs|sysctl|net.core.netdev_budget_usecs|4000|4000
 congestion|net.ipv4.tcp_congestion_control|sysctl|net.ipv4.tcp_congestion_control|bbr|bbr
 congestion|net.core.default_qdisc|sysctl|net.core.default_qdisc|fq_codel|fq_codel
 flow_offload|firewall.flow_offloading|firewall|flow_offloading|0|0
@@ -53,6 +52,12 @@ conntrack|nf_conntrack.hashsize|sysfs|hashsize|16384|16384
 irqbalance|service.irqbalance|service|irqbalance|stopped|stopped
 disable_ipv6|net.ipv6.conf.all.disable_ipv6|sysctl|net.ipv6.conf.all.disable_ipv6|1|1
 disable_ipv6|net.ipv6.conf.default.disable_ipv6|sysctl|net.ipv6.conf.default.disable_ipv6|1|1
+disable_ipv6|network.wan.ipv6|wanipv6|ipv6|0|0
+disable_ipv6|dhcp.dhcpv6|dhcp6|dhcpv6|disabled|disabled
+disable_ipv6|dhcp.ra|dhcp6|ra|disabled|disabled
+disable_ipv6|dhcp.ndp|dhcp6|ndp|disabled|disabled
+disable_ipv6|network.globals.ula_prefix|ula|ula_prefix|removed|removed
+disable_ipv6|service.odhcpd|service|odhcpd|stopped|stopped
 mobile_lte|nf_conntrack.tcp_established|sysctl|net.netfilter.nf_conntrack_tcp_timeout_established|7440|7440
 mobile_lte|link.mtu|mtu|@wan|auto|auto
 mobile_lte|link.mss_clamp|mss|@wan|1|1
@@ -101,11 +106,27 @@ st_effval() {
 
 st_hashsize() { st_cfg hashsize "$ST_HASHSIZE_DEFAULT"; }
 
+# Число ядер CPU (ST_CPU_CORES — для тестов).
+st_cpu_cores() {
+	[ -n "${ST_CPU_CORES:-}" ] && { echo "$ST_CPU_CORES"; return; }
+	_n=$(nproc 2>/dev/null)
+	case "$_n" in ''|*[!0-9]*) _n=$(grep -c '^processor' /proc/cpuinfo 2>/dev/null) ;; esac
+	case "$_n" in ''|*[!0-9]*|0) _n=1 ;; esac
+	echo "$_n"
+}
+
+# Рекомендация irqbalance по числу ядер: <4 ядер -> stopped (накладные расходы
+# не оправданы, на 1-2 ядрах вредно), >=4 -> running (есть смысл размазать IRQ).
+st_irqbalance_rec() {
+	[ "$(st_cpu_cores)" -ge 4 ] 2>/dev/null && echo running || echo stopped
+}
+
 # Рекомендованное значение (учёт профиля, 'auto'/MTU, hashsize). Без '@default'.
 st_recommended() {
 	# st_recommended <key> <lte_value> <home_value>
 	_eff=$(st_effval "$2" "$3")
 	[ "$1" = "nf_conntrack.hashsize" ] && { st_hashsize; return; }
+	[ "$1" = "service.irqbalance" ] && { st_irqbalance_rec; return; }
 	# link.mtu: ручное число (UCI mtu) > последний пробитый (mtu_resolved) > 'auto'
 	if [ "$1" = "link.mtu" ]; then
 		_mv=$(st_cfg mtu auto)
@@ -242,6 +263,30 @@ st_wan_zone() {
 }
 
 # ---------------------------------------------------------------------------
+# Состояние выдачи IPv6 клиентам (агрегаты по WAN-интерфейсам и DHCP-пулам)
+# ---------------------------------------------------------------------------
+st_wan_ipv6_state() {  # "0" если IPv6 выключен на ВСЕХ WAN (или WAN нет), иначе "default"
+	_any=0; _all=1
+	for _w in $(st_eth_wan_iface) $(st_uci_cellular_iface); do
+		[ -n "$_w" ] || continue
+		_any=1
+		[ "$(uci -q get "network.$_w.ipv6" 2>/dev/null)" = "0" ] || _all=0
+	done
+	{ [ "$_any" = "0" ] || [ "$_all" = "1" ]; } && echo 0 || echo default
+}
+st_dhcp_opt_state() {  # <option> -> "disabled" если во ВСЕХ пулах =disabled (или пулов нет)
+	_any=0; _all=1
+	for _s in $(uci -q show dhcp 2>/dev/null | sed -n 's/^dhcp\.\([^.=]*\)=dhcp$/\1/p'); do
+		_any=1
+		[ "$(uci -q get "dhcp.$_s.$1" 2>/dev/null)" = "disabled" ] || _all=0
+	done
+	{ [ "$_any" = "0" ] || [ "$_all" = "1" ]; } && echo disabled || echo enabled
+}
+st_ula_state() {  # "removed" если ULA-префикс пуст, иначе "present"
+	[ -z "$(uci -q get network.globals.ula_prefix 2>/dev/null)" ] && echo removed || echo present
+}
+
+# ---------------------------------------------------------------------------
 # Чтение текущего значения параметра
 # ---------------------------------------------------------------------------
 st_sysctl_path() { echo "$ST_PROC_ROOT/$(echo "$1" | tr '.' '/')"; }
@@ -273,6 +318,9 @@ st_read_current() {
 			else
 				[ -f "$ST_NFT_MSS" ] && echo 1 || echo 0
 			fi ;;
+		wanipv6) st_wan_ipv6_state ;;
+		dhcp6)   st_dhcp_opt_state "$2" ;;
+		ula)     st_ula_state ;;
 	esac
 }
 
@@ -340,11 +388,18 @@ st_param_state() {
 	_cat="$1"; _key="$2"; _typ="$3"; _cur="$4"; _rec="$5"
 	case "$_cat" in
 		congestion) [ "$_key" = "net.ipv4.tcp_congestion_control" ] && [ "$(st_cap_bbr)" != "1" ] && { echo unavailable; return; } ;;
-		irqbalance) [ "$(st_cap_irqbalance)" = "1" ] || { echo unavailable; return; } ;;
 	esac
 	_m=0
 	case "$_typ" in
-		service) [ "$_cur" = "$_rec" ] && _m=1 ;;
+		service)
+			# рекомендация "stopped" удовлетворяется и stopped, и absent
+			# (не установлен = не работает); "running" при absent — unavailable.
+			if [ "$_rec" = "running" ]; then
+				[ "$_cur" = "absent" ] && { echo unavailable; return; }
+				[ "$_cur" = "running" ] && _m=1
+			else
+				case "$_cur" in stopped|absent) _m=1 ;; esac
+			fi ;;
 		mss)     [ "$_cur" = "1" ] && _m=1 ;;
 		mtu)
 			case "$_rec" in

@@ -13,7 +13,7 @@ LUCI_DEPENDS:=+luci-base
 # irqbalance НЕ форсим (всегда OFF, детектится по факту).
 LUCI_EXTRA_DEPENDS:=kmod-tcp-bbr (>=0), iputils-ping (>=0)
 LUCI_PKGARCH:=all
-PKG_VERSION:=2.3
+PKG_VERSION:=2.4
 PKG_LICENSE:=GPL-2.0
 PKG_MAINTAINER:=StreamTune project
 

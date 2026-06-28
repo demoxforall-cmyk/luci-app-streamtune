@@ -53,9 +53,9 @@ var CATMETA = {
 	conntrack:    { icon: 'sliders', title: _('Connection tracking'),
 		desc: _('A bigger conntrack hash table speeds up lookups when there are many connections.') },
 	irqbalance:   { icon: 'chip',    title: _('IRQ balancing'),
-		desc: _('Recommended OFF on a dual-core router (neutral to harmful). Enable the toggle to stop and disable the service.') },
+		desc: _('Core-aware: recommended OFF on 1–3 cores (overhead not worth it, harmful on 1–2), ON from 4 cores. The toggle enforces the recommendation for your CPU.') },
 	disable_ipv6: { icon: 'shield',  title: _('Disable IPv6'),
-		desc: _('On mobile carriers this BREAKS 464XLAT/CLAT and can kill connectivity — keep IPv6 enabled. No audio benefit.') },
+		desc: _('Full IPv6 off — every item changed is listed below: kernel stack, WAN IPv6, DHCPv6/RA/NDP per pool, ULA prefix and odhcpd. Risky in general (can break 464XLAT/CLAT on mobile); here clients are IPv4-only by design.') },
 	mobile_lte:   { icon: 'globe',   title: _('Mobile LTE link'),
 		desc: _('Forwarded-traffic fixes that actually matter on a cellular link: MTU + MSS clamp (prevents TLS blackhole stalls) and a generous conntrack timeout.') }
 };
@@ -68,7 +68,13 @@ var PLABEL = {
 	'service.irqbalance':          _('irqbalance service'),
 	'nf_conntrack.tcp_established': _('conntrack TCP timeout'),
 	'link.mtu':                    _('WAN MTU'),
-	'link.mss_clamp':              _('MSS clamping')
+	'link.mss_clamp':              _('MSS clamping'),
+	'network.wan.ipv6':            _('WAN IPv6'),
+	'dhcp.dhcpv6':                 _('DHCPv6 server (LAN)'),
+	'dhcp.ra':                     _('Router Advertisement (RA)'),
+	'dhcp.ndp':                    _('NDP proxy'),
+	'network.globals.ula_prefix':  _('ULA prefix'),
+	'service.odhcpd':              _('odhcpd service')
 };
 
 /* Подсказки по параметрам */
@@ -89,7 +95,6 @@ var PHELP = {
 	'net.ipv4.tcp_max_tw_buckets':         _('Maximum number of TIME_WAIT sockets.'),
 	'net.core.netdev_max_backlog':         _('Packets queued when an interface delivers faster than the kernel handles.'),
 	'net.core.netdev_budget':              _('Packets processed per NAPI poll cycle.'),
-	'net.core.netdev_budget_usecs':        _('Time budget per NAPI poll cycle (µs); raise alongside netdev_budget so the packet limit, not the timer, governs.'),
 	'net.ipv4.tcp_congestion_control':     _('Congestion control algorithm; bbr is recommended for streaming.'),
 	'net.core.default_qdisc':              _('Default queueing discipline; fq pairs with BBR.'),
 	'firewall.flow_offloading':            _('Software flow offloading in the firewall.'),
@@ -100,7 +105,13 @@ var PHELP = {
 	'net.ipv6.conf.default.disable_ipv6':  _('Disable IPv6 on the default interface template.'),
 	'nf_conntrack.tcp_established':        _('Established-TCP conntrack timeout (seconds); keep generous so idle audio streams are not reaped from NAT.'),
 	'link.mtu':                            _('WAN MTU; ~1430 compensates cellular tunnel overhead.'),
-	'link.mss_clamp':                      _('Clamp TCP MSS to the path MTU so large TLS packets do not silently blackhole on the cellular link.')
+	'link.mss_clamp':                      _('Clamp TCP MSS to the path MTU so large TLS packets do not silently blackhole on the cellular link.'),
+	'network.wan.ipv6':                    _('Disable IPv6 on the WAN interface(s).'),
+	'dhcp.dhcpv6':                         _('DHCPv6 server handed to LAN clients (odhcpd); disabled = no IPv6 addressing.'),
+	'dhcp.ra':                             _('IPv6 Router Advertisements to LAN; disabled = clients get no IPv6 default route.'),
+	'dhcp.ndp':                            _('NDP proxy; disabled with full IPv6 off.'),
+	'network.globals.ula_prefix':          _('Unique Local Address prefix; removed when IPv6 is fully off (restored on Reset all).'),
+	'service.odhcpd':                      _('odhcpd daemon (RA/DHCPv6/NDP); stopped and disabled when IPv6 is fully off.')
 };
 
 /* Три статуса соответствия + edge "unavailable" (нельзя применить — нет пакета) */
@@ -182,6 +193,9 @@ return baseclass.extend({
 			if (p.cur === 'stopped') return _('stopped');
 			if (p.cur === 'absent')  return _('not installed');
 		}
+		if (p.type === 'wanipv6') return (p.cur === '0') ? _('disabled') : _('on (default)');
+		if (p.type === 'dhcp6')   return (p.cur === 'disabled') ? _('disabled') : _('enabled (server)');
+		if (p.type === 'ula')     return (p.cur === 'removed') ? _('removed') : (p.cur || '—');
 		return (p.cur === '' || p.cur == null) ? '—' : p.cur;
 	},
 

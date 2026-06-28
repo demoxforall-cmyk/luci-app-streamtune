@@ -29,7 +29,7 @@ assert_has "$body" 'net.ipv4.tcp_max_syn_backlog = 8192' "syn_backlog 8192"
 assert_has "$body" 'net.ipv4.tcp_max_tw_buckets = 65536' "tw_buckets 65536"
 assert_has "$body" 'net.core.netdev_max_backlog = 5000' "netdev_max_backlog 5000"
 assert_has "$body" 'net.core.netdev_budget = 600' "netdev_budget 600"
-assert_has "$body" 'net.core.netdev_budget_usecs = 4000' "netdev_budget_usecs 4000 (новый)"
+assert_not "$body" 'netdev_budget_usecs' "netdev_budget_usecs убран (ядро отвергает 4000)"
 assert_has "$body" 'net.ipv4.tcp_slow_start_after_idle = 0' "slow_start 0"
 assert_has "$body" 'net.ipv4.tcp_congestion_control = bbr' "bbr written"
 assert_has "$body" 'net.core.default_qdisc = fq_codel' "fq_codel written"
@@ -50,7 +50,7 @@ assert_has "$nft" 'oifname "wwan0" tcp flags syn / fin,syn,rst tcp option maxseg
 assert_has "$nft" 'iifname "wwan0" tcp flags syn / fin,syn,rst tcp option maxseg size set rt mtu' "MSS incoming"
 echo "[applied: ключи параметров]"
 assert_has "$res" '"net.core.rmem_max"' "applied содержит rmem_max"
-assert_has "$res" '"net.core.netdev_budget_usecs"' "applied содержит budget_usecs"
+assert_has "$res" '"net.core.netdev_budget"' "applied содержит netdev_budget"
 assert_has "$res" '"link.mss_clamp"' "applied содержит mss_clamp"
 
 # --- per-param off: выключенный параметр НЕ в drop-in ---

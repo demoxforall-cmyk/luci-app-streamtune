@@ -132,27 +132,56 @@ EOF
 	fi
 }
 
+# Отключение IPv6 — КАЖДЫЙ под-параметр по своему тумблеру (sysctl-часть в drop-in).
+# Перед изменением каждого uci-опшена сохраняем его ТОЧНЫЙ оригинал в state как
+# "uci:<path>" -> <значение|__unset__>; откат восстанавливает именно его.
 apply_disable_ipv6() {
-	# sysctl-часть уже в drop-in; здесь — выдача клиентам + WAN + ULA + odhcpd
 	[ "$ST_NO_APPLY" = "1" ] && return 0
-	for w in $(st_eth_wan_iface) $(st_uci_cellular_iface); do
-		[ -n "$w" ] && uci -q set "network.$w.ipv6=0"
+	_ch=0
+	# WAN ipv6=0
+	if st_param_enabled network.wan.ipv6; then
+		_did=0
+		for w in $(st_eth_wan_iface) $(st_uci_cellular_iface); do
+			[ -n "$w" ] || continue
+			_cur=$(uci -q get "network.$w.ipv6" 2>/dev/null)
+			[ "$_cur" = "0" ] && continue
+			st_state_add "uci:network.$w.ipv6" "${_cur:-__unset__}"
+			uci -q set "network.$w.ipv6=0"; _did=1
+		done
+		[ "$_did" = 1 ] && st_state_add network.wan.ipv6 applied
+		add_applied network.wan.ipv6; _ch=1
+	fi
+	# DHCPv6 / RA / NDP по всем пулам (точные оригиналы каждого пула)
+	for opt in dhcpv6 ra ndp; do
+		st_param_enabled "dhcp.$opt" || continue
+		_did=0
+		for s in $(uci -q show dhcp 2>/dev/null | sed -n 's/^dhcp\.\([^.=]*\)=dhcp$/\1/p'); do
+			_cur=$(uci -q get "dhcp.$s.$opt" 2>/dev/null)
+			[ "$_cur" = "disabled" ] && continue
+			st_state_add "uci:dhcp.$s.$opt" "${_cur:-__unset__}"
+			uci -q set "dhcp.$s.$opt=disabled"; _did=1
+		done
+		[ "$_did" = 1 ] && st_state_add "dhcp.$opt" applied
+		add_applied "dhcp.$opt"; _ch=1
 	done
-	for s in $(uci -q show dhcp 2>/dev/null | sed -n 's/^dhcp\.\([^.=]*\)=dhcp$/\1/p'); do
-		uci -q set "dhcp.$s.dhcpv6=disabled"
-		uci -q set "dhcp.$s.ra=disabled"
-		uci -q set "dhcp.$s.ndp=disabled"
-	done
-	# ULA-префикс: сохраняем оригинал (для отката) перед удалением
-	ula=$(uci -q get network.globals.ula_prefix 2>/dev/null)
-	[ -n "$ula" ] && st_state_add "network.globals.ula_prefix" "$ula"
-	uci -q delete network.globals.ula_prefix 2>/dev/null
-	uci commit network; uci commit dhcp
-	/etc/init.d/odhcpd disable >/dev/null 2>&1
-	/etc/init.d/odhcpd stop >/dev/null 2>&1
-	/etc/init.d/network reload >/dev/null 2>&1
-	sysctl -w net.ipv6.conf.all.disable_ipv6=1 >/dev/null 2>&1
-	sysctl -w net.ipv6.conf.default.disable_ipv6=1 >/dev/null 2>&1
+	# ULA-префикс (сохраняем оригинал для точного отката)
+	if st_param_enabled network.globals.ula_prefix; then
+		ula=$(uci -q get network.globals.ula_prefix 2>/dev/null)
+		[ -n "$ula" ] && st_state_add network.globals.ula_prefix "$ula"
+		uci -q delete network.globals.ula_prefix 2>/dev/null
+		add_applied network.globals.ula_prefix; _ch=1
+	fi
+	[ "$_ch" = "1" ] && { uci commit network; uci commit dhcp; }
+	# odhcpd (сохраняем исходное состояние службы)
+	if st_param_enabled service.odhcpd; then
+		[ "$(st_service_state odhcpd)" = "running" ] && st_state_add service.odhcpd running
+		/etc/init.d/odhcpd disable >/dev/null 2>&1; /etc/init.d/odhcpd stop >/dev/null 2>&1
+		add_applied service.odhcpd
+	fi
+	[ "$_ch" = "1" ] && /etc/init.d/network reload >/dev/null 2>&1
+	# дублируем sysctl-часть немедленно (в drop-in она тоже есть)
+	st_param_enabled net.ipv6.conf.all.disable_ipv6 && sysctl -w net.ipv6.conf.all.disable_ipv6=1 >/dev/null 2>&1
+	st_param_enabled net.ipv6.conf.default.disable_ipv6 && sysctl -w net.ipv6.conf.default.disable_ipv6=1 >/dev/null 2>&1
 }
 
 do_apply() {
@@ -177,22 +206,31 @@ do_apply() {
 	apply_fw_param firewall.flow_offloading
 	apply_fw_param firewall.flow_offloading_hw
 
-	# irqbalance (рекомендация = stopped): остановить+выключить, если запущен
+	# irqbalance (рекомендация core-зависимая: <4 ядер stopped, >=4 running)
 	if st_param_enabled service.irqbalance; then
-		if [ "$(st_cap_irqbalance)" = "1" ]; then
-			cur=$(st_service_state irqbalance)
-			[ "$cur" != "stopped" ] && st_state_add service.irqbalance "$cur"
-			sys /etc/init.d/irqbalance stop; sys /etc/init.d/irqbalance disable
+		irqrec=$(st_recommended service.irqbalance "" "")
+		cur=$(st_service_state irqbalance)
+		if [ "$irqrec" = "running" ]; then
+			if [ "$(st_cap_irqbalance)" = "1" ]; then
+				[ "$cur" != "running" ] && st_state_add service.irqbalance "$cur"
+				sys /etc/init.d/irqbalance enable; sys /etc/init.d/irqbalance start
+				add_applied service.irqbalance
+			else add_error "irqbalance: рекомендован running (>=4 ядер), но пакет не установлен"; fi
+		else
+			if [ "$cur" = "running" ]; then
+				st_state_add service.irqbalance "$cur"
+				sys /etc/init.d/irqbalance stop; sys /etc/init.d/irqbalance disable
+			fi
 			add_applied service.irqbalance
-		else add_error "irqbalance: package not installed"; fi
+		fi
 	fi
 
 	# mobile LTE: MSS-clamp (nft) и MTU (auto/число)
 	if st_param_enabled link.mss_clamp; then apply_mss; add_applied link.mss_clamp; fi
 	if st_param_enabled link.mtu; then apply_mtu; add_applied link.mtu; fi
 
-	# полное отключение IPv6 (sysctl уже в drop-in; здесь клиенты/WAN/ULA/odhcpd)
-	if st_param_enabled net.ipv6.conf.all.disable_ipv6; then apply_disable_ipv6; fi
+	# отключение IPv6: WAN/DHCPv6/RA/NDP/ULA/odhcpd — каждый по своему тумблеру
+	apply_disable_ipv6
 
 	# firewall перезагрузка под offload/mss (один раз)
 	if [ "$ST_NO_APPLY" != "1" ]; then
@@ -204,7 +242,16 @@ do_apply() {
 # Откатить один параметр к исходному значению из state-файла.
 revert_one() {  # <key> <orig>
 	_k="$1"; _orig="$2"
-	# псевдо-ключ вне реестра: ULA-префикс (удалялся при отключении IPv6)
+	# точечный uci-откат per-instance (IPv6): ключ "uci:<path>"
+	case "$_k" in
+		uci:*)
+			_path=${_k#uci:}
+			if [ "$_orig" = "__unset__" ]; then uci -q delete "$_path" 2>/dev/null
+			else uci -q set "$_path=$_orig" >/dev/null 2>&1; fi
+			uci commit "${_path%%.*}" >/dev/null 2>&1; return ;;
+		network.wan.ipv6|dhcp.dhcpv6|dhcp.ra|dhcp.ndp) return ;; # маркеры статуса; откат делают uci:-записи
+	esac
+	# ULA-префикс (псевдо-ключ вне реестра)
 	if [ "$_k" = "network.globals.ula_prefix" ]; then
 		[ -n "$_orig" ] && uci set "network.globals.ula_prefix=$_orig" >/dev/null 2>&1
 		uci commit network >/dev/null 2>&1; return
@@ -218,7 +265,10 @@ revert_one() {  # <key> <orig>
 			opt=${_k#firewall.}
 			uci set "firewall.@defaults[0].$opt=$_orig" >/dev/null 2>&1; uci commit firewall ;;
 		service)
-			[ "$_orig" = "running" ] && { /etc/init.d/irqbalance enable >/dev/null 2>&1; /etc/init.d/irqbalance start >/dev/null 2>&1; } ;;
+			case "$_orig" in
+				running) /etc/init.d/"$_tgt" enable >/dev/null 2>&1; /etc/init.d/"$_tgt" start >/dev/null 2>&1 ;;
+				stopped) /etc/init.d/"$_tgt" stop >/dev/null 2>&1; /etc/init.d/"$_tgt" disable >/dev/null 2>&1 ;;
+			esac ;;
 		mtu)
 			w=$(st_wan_iface); [ -n "$w" ] && uci set "network.$w.mtu=$_orig" >/dev/null 2>&1; uci commit network ;;
 		mss) : ;;
@@ -237,15 +287,7 @@ do_revert() {
 				[ -n "$key" ] && revert_one "$key" "$orig"
 			done < "$ST_STATE_FILE"
 		fi
-		# 4) вернуть выдачу IPv6 клиентам (дефолт OpenWRT для lan)
-		uci -q set dhcp.lan.dhcpv6='server'; uci -q set dhcp.lan.ra='server'
-		uci -q delete dhcp.lan.ndp 2>/dev/null
-		uci -q delete network.lan.delegate 2>/dev/null
-		for w in $(st_eth_wan_iface) $(st_uci_cellular_iface); do
-			[ -n "$w" ] && uci -q delete "network.$w.ipv6" 2>/dev/null
-		done
-		uci commit dhcp; uci commit network
-		/etc/init.d/odhcpd enable >/dev/null 2>&1; /etc/init.d/odhcpd start >/dev/null 2>&1
+		# (IPv6/прочее восстановлено в шаге 3 из state-файла — только то, что меняли)
 		uci -q delete streamtune.global.mtu_resolved 2>/dev/null
 		uci commit streamtune
 		if command -v fw4 >/dev/null 2>&1; then fw4 reload >/dev/null 2>&1

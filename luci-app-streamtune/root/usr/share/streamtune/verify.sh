@@ -35,7 +35,6 @@ fi
 v=$(sv net.netfilter.nf_conntrack_tcp_timeout_established); eq "$v" 7440 && ck "conntrack established timeout" 0 "$v" || ck "conntrack established timeout" 2 "$v (ожид. 7440)"
 v=$(sv net.ipv4.tcp_max_tw_buckets); eq "$v" 65536 && ck "tcp_max_tw_buckets" 0 "$v" || ck "tcp_max_tw_buckets" 2 "$v (ожид. 65536)"
 v=$(sv net.core.netdev_budget); eq "$v" 600 && ck "netdev_budget" 0 "$v" || ck "netdev_budget" 2 "$v (ожид. 600)"
-v=$(sv net.core.netdev_budget_usecs); eq "$v" 4000 && ck "netdev_budget_usecs" 0 "$v" || ck "netdev_budget_usecs" 2 "$v (ожид. 4000)"
 
 echo "--- BBR версия (по размеру модуля; modinfo вырезан) ---"
 bv=$(st_bbr_version); bs=$(st_bbr_ksize)
