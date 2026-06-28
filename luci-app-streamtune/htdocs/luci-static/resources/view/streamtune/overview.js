@@ -189,7 +189,7 @@ return view.extend({
 
 		/* версия BBR — внутри блока Congestion (логичнее, чем в шапке) */
 		if (cat === 'congestion') {
-			this.bbrInfo = E('div', { 'class': 'st-bbr-info' }, [ st.icon('gauge'), E('span', {}, _('BBR: %s').format(st.bbrText(this.caps))) ]);
+			this.bbrInfo = E('div', { 'class': 'st-bbr-info' }, [ E('span', {}, _('BBR: %s').format(st.bbrText(this.caps))) ]);
 			body.appendChild(this.bbrInfo);
 			if (this.caps.bbr === 0) body.appendChild(pkgNote('kmod-tcp-bbr'));
 		}
@@ -258,7 +258,7 @@ return view.extend({
 			(pct === 100) ? E('span', { 'class': 'st-ok-tag' }, [ st.icon('check'), _('All set') ]) : ''
 		]);
 		/* версия BBR живёт в карточке Congestion — обновим её, если есть ссылка */
-		if (this.bbrInfo) dom.content(this.bbrInfo, [ st.icon('gauge'), E('span', {}, _('BBR: %s').format(st.bbrText(this.caps))) ]);
+		if (this.bbrInfo) dom.content(this.bbrInfo, [ E('span', {}, _('BBR: %s').format(st.bbrText(this.caps))) ]);
 		this.updateHint();
 
 		/* построить-или-обновить строки (самовосстановление, если первый load упал) */

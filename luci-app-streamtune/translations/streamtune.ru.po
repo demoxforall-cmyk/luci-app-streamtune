@@ -532,3 +532,9 @@ msgstr "ч"
 
 msgid "min"
 msgstr "мин"
+
+msgid "Overview"
+msgstr "Обзор"
+
+msgid "Diagnostics"
+msgstr "Диагностика"
