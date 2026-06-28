@@ -16,6 +16,7 @@ root/usr/share/streamtune/detect.sh
 root/usr/share/streamtune/apply.sh
 root/usr/share/streamtune/boot.sh
 root/usr/share/streamtune/boot.awk
+root/usr/share/streamtune/boot_lines.sh
 root/usr/share/streamtune/mtu_probe.sh
 root/usr/share/streamtune/verify.sh
 root/usr/share/luci/menu.d/luci-app-streamtune.json
@@ -33,7 +34,8 @@ done
 echo "[shell syntax]"
 for s in root/usr/libexec/rpcd/streamtune root/usr/share/streamtune/lib.sh \
          root/usr/share/streamtune/detect.sh root/usr/share/streamtune/apply.sh \
-         root/usr/share/streamtune/boot.sh root/usr/share/streamtune/mtu_probe.sh \
+         root/usr/share/streamtune/boot.sh root/usr/share/streamtune/boot_lines.sh \
+         root/usr/share/streamtune/mtu_probe.sh \
          root/usr/share/streamtune/verify.sh root/etc/init.d/streamtune \
          root/etc/uci-defaults/80-streamtune-init root/etc/uci-defaults/99-streamtune-lang; do
 	if sh -n "$PKG/$s" 2>/dev/null; then ok "sh -n: $s"; else bad "sh -n: $s"; fi

@@ -69,8 +69,10 @@ return view.extend({
 
 	bootLabel: function(l) { return BOOTLBL[l] || l; },
 
-	/* строка фазы: подпись + Gantt-полоса + длительность; раскрытие = лог фазы */
-	tlRow: function(e, delta, leftPct, widPct, lines, slow) {
+	/* строка фазы: подпись + Gantt-полоса + длительность; раскрытие = лог фазы.
+	 * Лог тянется ПО ТРЕБОВАНИЮ (boot_lines from..to) — маленький ответ, не упирается
+	 * в лимит размера ubus (полный лог в один get_boot не влезает). */
+	tlRow: function(e, delta, leftPct, widPct, from, to, slow) {
 		var chev = E('span', { 'class': 'st-tlx-chev' });
 		chev.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>';
 		var seg = E('div', { 'class': 'st-tlx-seg' + (slow ? ' st-slow' : ''),
@@ -83,20 +85,30 @@ return view.extend({
 			E('span', { 'class': 'st-tlx-dt' }, '+' + delta.toFixed(2) + ' ' + _('s'))
 		]);
 
-		var cap = lines.slice(0, 22);
-		var body = cap.map(function(l) {
-			return E('div', { 'class': 'st-tlx-ln' }, [
-				E('span', { 'class': 'st-tlx-lt' }, l.t.toFixed(3)),
-				E('span', { 'class': 'st-tlx-lm' }, l.m)
-			]);
-		});
-		if (lines.length > 22) body.push(E('div', { 'class': 'st-tlx-more' }, _('+%d more lines').format(lines.length - 22)));
-		if (!lines.length) body.push(E('div', { 'class': 'st-tlx-more' }, _('no kernel messages captured in this phase')));
-
+		var log = E('div', { 'class': 'st-tlx-log' });
 		var row = E('div', { 'class': 'st-tlx' + (slow ? ' st-tlx-slow' : '') }, [
-			head, E('div', { 'class': 'st-tlx-panel' }, [ E('div', { 'class': 'st-tlx-log' }, body) ])
+			head, E('div', { 'class': 'st-tlx-panel' }, [ log ])
 		]);
-		head.addEventListener('click', function() { row.classList.toggle('st-open'); });
+		var loaded = false;
+		head.addEventListener('click', function() {
+			row.classList.toggle('st-open');
+			if (loaded || !row.classList.contains('st-open')) return;
+			loaded = true;
+			dom.content(log, E('div', { 'class': 'st-tlx-more' }, _('loading…')));
+			L.resolveDefault(st.rpc.bootLines(from, to), { lines: [] }).then(function(r) {
+				var lines = (r && r.lines) || [];
+				if (!lines.length) {
+					dom.content(log, E('div', { 'class': 'st-tlx-more' }, _('no kernel messages captured in this phase')));
+					return;
+				}
+				dom.content(log, lines.map(function(l) {
+					return E('div', { 'class': 'st-tlx-ln' }, [
+						E('span', { 'class': 'st-tlx-lt' }, l.t.toFixed(3)),
+						E('span', { 'class': 'st-tlx-lm' }, l.m)
+					]);
+				}));
+			});
+		});
 		return row;
 	},
 
@@ -111,13 +123,6 @@ return view.extend({
 		var last = events[events.length - 1];
 		if (total > 0 && (!last || last.t < total - 0.05)) events.push({ t: total, label: 'System ready' });
 
-		var log = boot.log || [];
-		/* каждую строку лога — в первую фазу, чья веха по времени >= строки */
-		var buckets = events.map(function() { return []; });
-		log.forEach(function(l) {
-			for (var i = 0; i < events.length; i++) { if (l.t <= events[i].t + 1e-6) { buckets[i].push(l); break; } }
-		});
-
 		var maxDelta = 0, prev = 0;
 		events.forEach(function(e) { var d = e.t - prev; if (d > maxDelta) maxDelta = d; prev = e.t; });
 
@@ -127,8 +132,10 @@ return view.extend({
 			var leftPct = total > 0 ? (prev / total * 100) : 0;
 			var widPct = total > 0 ? Math.max(1.2, delta / total * 100) : 0;
 			var slow = (delta === maxDelta && delta > 0.1);
+			var from = (i === 0) ? -1 : prev;   /* первая фаза включает t=0 */
+			var to = e.t;
 			prev = e.t;
-			return this.tlRow(e, delta, leftPct, widPct, buckets[i], slow);
+			return this.tlRow(e, delta, leftPct, widPct, from, to, slow);
 		}, this));
 
 		return E('div', {}, [

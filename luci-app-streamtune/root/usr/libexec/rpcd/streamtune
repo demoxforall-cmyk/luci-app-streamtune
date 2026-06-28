@@ -21,6 +21,7 @@ case "$1" in
 	list)
 		cat <<JSON
 { "get_status":{}, "get_boot":{}, "probe_mtu":{},
+  "boot_lines":{ "from":0, "to":0 },
   "apply":{ "profile":"", "param_off":"", "wan_iface":"", "mtu":"" },
   "revert":{} }
 JSON
@@ -33,6 +34,15 @@ JSON
 				sh "$ST_SHARE/boot.sh" ;;
 			probe_mtu)
 				sh "$ST_SHARE/mtu_probe.sh" ;;
+			boot_lines)
+				# строки dmesg одной фазы загрузки (по требованию; маленький ответ)
+				read -r input
+				json_load "$input"
+				json_get_var bf from
+				json_get_var bt to
+				case "$bf" in ''|*[!0-9.-]*) bf=0 ;; esac
+				case "$bt" in ''|*[!0-9.]*)  bt=999999 ;; esac
+				ST_FROM="$bf" ST_TO="$bt" sh "$ST_SHARE/boot_lines.sh" ;;
 			apply)
 				read -r input
 				json_load "$input"

@@ -35,8 +35,6 @@ function esc(s) {
 		if (t > maxt) maxt = t
 		rest = substr($0, RSTART + RLENGTH)
 		sub(/^[ ]+/, "", rest)
-		# накапливаем весь лог (с лимитом) — фронтенд бьёт его по фазам для раскрытия
-		if (NL < 240) { NL++; LT[NL] = t; LM[NL] = esc(substr(rest, 1, 120)) }
 		for (i = 1; i <= NM; i++) {
 			if (!(lab[i] in tfound) && rest ~ pat[i]) tfound[lab[i]] = t
 		}
@@ -58,11 +56,6 @@ END {
 	for (a = 1; a <= k; a++) {
 		if (a > 1) printf ","
 		printf "{\"t\":%.2f,\"label\":\"%s\"}", T[a], esc(L[a])
-	}
-	printf "],\"log\":["
-	for (n = 1; n <= NL; n++) {
-		if (n > 1) printf ","
-		printf "{\"t\":%.2f,\"m\":\"%s\"}", LT[n], LM[n]
 	}
 	printf "]}\n"
 }

@@ -6,12 +6,13 @@
  * визуальные хелперы (бейджи статуса, кольцо оценки, иконки), загрузка CSS.
  * Реестр параметров — зеркало root/usr/share/streamtune/lib.sh. */
 
-var ST_VER = '2.10';
+var ST_VER = '2.11';
 
 var callStatus = rpc.declare({ object: 'streamtune', method: 'get_status' });
 var callBoot   = rpc.declare({ object: 'streamtune', method: 'get_boot' });
 var callRevert = rpc.declare({ object: 'streamtune', method: 'revert' });
 var callProbe  = rpc.declare({ object: 'streamtune', method: 'probe_mtu' });
+var callBootLines = rpc.declare({ object: 'streamtune', method: 'boot_lines', params: [ 'from', 'to' ] });
 var callApply  = rpc.declare({
 	object: 'streamtune', method: 'apply',
 	params: [ 'profile', 'param_off', 'wan_iface', 'mtu' ]
@@ -149,7 +150,8 @@ return baseclass.extend({
 		boot:   callBoot,
 		apply:  callApply,
 		revert: callRevert,
-		probe:  callProbe
+		probe:  callProbe,
+		bootLines: callBootLines
 	},
 
 	PROFILES: PROFILES,

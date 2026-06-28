@@ -580,3 +580,6 @@ msgstr "в этой фазе сообщений ядра не захвачено
 
 msgid "Uptime"
 msgstr "Аптайм"
+
+msgid "loading…"
+msgstr "загрузка…"
