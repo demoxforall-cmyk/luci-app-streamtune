@@ -2,5 +2,14 @@
 # Включаем службу streamtune (восстановление conntrack hashsize на загрузке).
 # Сам конфиг ставится файлом /etc/config/streamtune. Оптимизации НЕ применяются
 # автоматически — пользователь нажимает «Применить» в LuCI.
+#
+# Модель v2.3: per-param тумблеры (list param_off; по умолчанию ВСЕ включены).
+# Чистим устаревшие per-category опции прежних версий, чтобы не путались.
+for o in net_buffers low_latency backlog congestion flow_offload flow_offload_hw \
+         conntrack irqbalance disable_ipv6 mobile_lte; do
+	uci -q delete "streamtune.global.$o" 2>/dev/null
+done
+uci -q commit streamtune 2>/dev/null
+
 [ -x /etc/init.d/streamtune ] && /etc/init.d/streamtune enable 2>/dev/null
 exit 0

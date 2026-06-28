@@ -15,38 +15,42 @@ ST_DROPIN="${ST_DROPIN:-$ST_SYSCTL_D/99-streamtune.conf}"
 ST_NFT_MSS="${ST_NFT_MSS:-/etc/nftables.d/13-streamtune-mss.nft}"
 ST_SYSFS_HASHSIZE="${ST_SYSFS_HASHSIZE:-/sys/module/nf_conntrack/parameters/hashsize}"
 ST_HASHSIZE_DEFAULT="${ST_HASHSIZE_DEFAULT:-16384}"
+# Память «применённого»: строки "<key>\t<исходное значение>" — отличает статус
+# Applied (мы изменили) от Matches (совпало само) и хранит оригинал для отката.
+ST_STATE_FILE="${ST_STATE_FILE:-/etc/streamtune.applied}"
 
 # ---------------------------------------------------------------------------
 # Реестр параметров: category|key|type|target|lte_audio|home_wired
 #   type   — sysctl | firewall | sysfs | service | mtu | mss
 #   target — sysctl: имя ключа; firewall: опция @defaults[0]; sysfs: hashsize;
 #            service: имя; mtu: @wan; mss: @wan
-#   значения профилей: число/строка | '@default' (не управлять) | 'auto' (MTU: проба)
+#   значения профилей: конкретное число/строка | 'auto' (только MTU: проба)
 # ---------------------------------------------------------------------------
 st_registry() {
 	cat <<'REG'
 net_buffers|net.core.rmem_max|sysctl|net.core.rmem_max|4194304|4194304
 net_buffers|net.core.wmem_max|sysctl|net.core.wmem_max|4194304|4194304
-net_buffers|net.core.rmem_default|sysctl|net.core.rmem_default|@default|@default
-net_buffers|net.core.wmem_default|sysctl|net.core.wmem_default|@default|@default
-net_buffers|net.core.optmem_max|sysctl|net.core.optmem_max|@default|@default
-net_buffers|net.ipv4.tcp_rmem|sysctl|net.ipv4.tcp_rmem|@default|@default
-net_buffers|net.ipv4.tcp_wmem|sysctl|net.ipv4.tcp_wmem|@default|@default
+net_buffers|net.core.rmem_default|sysctl|net.core.rmem_default|262144|262144
+net_buffers|net.core.wmem_default|sysctl|net.core.wmem_default|262144|262144
+net_buffers|net.core.optmem_max|sysctl|net.core.optmem_max|65536|65536
+net_buffers|net.ipv4.tcp_rmem|sysctl|net.ipv4.tcp_rmem|4096 131072 4194304|4096 131072 4194304
+net_buffers|net.ipv4.tcp_wmem|sysctl|net.ipv4.tcp_wmem|4096 131072 4194304|4096 131072 4194304
 net_buffers|net.ipv4.udp_rmem_min|sysctl|net.ipv4.udp_rmem_min|8192|8192
 net_buffers|net.ipv4.udp_wmem_min|sysctl|net.ipv4.udp_wmem_min|8192|8192
 low_latency|net.ipv4.tcp_slow_start_after_idle|sysctl|net.ipv4.tcp_slow_start_after_idle|0|0
-low_latency|net.ipv4.tcp_tw_reuse|sysctl|net.ipv4.tcp_tw_reuse|@default|@default
-low_latency|net.ipv4.tcp_fin_timeout|sysctl|net.ipv4.tcp_fin_timeout|@default|@default
-low_latency|net.ipv4.tcp_max_syn_backlog|sysctl|net.ipv4.tcp_max_syn_backlog|@default|@default
-low_latency|net.ipv4.tcp_max_tw_buckets|sysctl|net.ipv4.tcp_max_tw_buckets|@default|@default
-backlog|net.core.netdev_max_backlog|sysctl|net.core.netdev_max_backlog|@default|@default
-backlog|net.core.netdev_budget|sysctl|net.core.netdev_budget|@default|@default
+low_latency|net.ipv4.tcp_tw_reuse|sysctl|net.ipv4.tcp_tw_reuse|1|1
+low_latency|net.ipv4.tcp_fin_timeout|sysctl|net.ipv4.tcp_fin_timeout|15|15
+low_latency|net.ipv4.tcp_max_syn_backlog|sysctl|net.ipv4.tcp_max_syn_backlog|8192|8192
+low_latency|net.ipv4.tcp_max_tw_buckets|sysctl|net.ipv4.tcp_max_tw_buckets|65536|65536
+backlog|net.core.netdev_max_backlog|sysctl|net.core.netdev_max_backlog|5000|5000
+backlog|net.core.netdev_budget|sysctl|net.core.netdev_budget|600|600
+backlog|net.core.netdev_budget_usecs|sysctl|net.core.netdev_budget_usecs|4000|4000
 congestion|net.ipv4.tcp_congestion_control|sysctl|net.ipv4.tcp_congestion_control|bbr|bbr
 congestion|net.core.default_qdisc|sysctl|net.core.default_qdisc|fq_codel|fq_codel
-flow_offload|firewall.flow_offloading|firewall|flow_offloading|1|1
-flow_offload|firewall.flow_offloading_hw|firewall|flow_offloading_hw|1|1
+flow_offload|firewall.flow_offloading|firewall|flow_offloading|0|0
+flow_offload|firewall.flow_offloading_hw|firewall|flow_offloading_hw|0|0
 conntrack|nf_conntrack.hashsize|sysfs|hashsize|16384|16384
-irqbalance|service.irqbalance|service|irqbalance|running|running
+irqbalance|service.irqbalance|service|irqbalance|stopped|stopped
 disable_ipv6|net.ipv6.conf.all.disable_ipv6|sysctl|net.ipv6.conf.all.disable_ipv6|1|1
 disable_ipv6|net.ipv6.conf.default.disable_ipv6|sysctl|net.ipv6.conf.default.disable_ipv6|1|1
 mobile_lte|nf_conntrack.tcp_established|sysctl|net.netfilter.nf_conntrack_tcp_timeout_established|7440|7440
@@ -97,36 +101,56 @@ st_effval() {
 
 st_hashsize() { st_cfg hashsize "$ST_HASHSIZE_DEFAULT"; }
 
-# Рекомендованное значение (учёт профиля, '@default', 'auto', hashsize).
+# Рекомендованное значение (учёт профиля, 'auto'/MTU, hashsize). Без '@default'.
 st_recommended() {
 	# st_recommended <key> <lte_value> <home_value>
 	_eff=$(st_effval "$2" "$3")
-	[ "$_eff" = "@default" ] && { echo "@default"; return; }
 	[ "$1" = "nf_conntrack.hashsize" ] && { st_hashsize; return; }
-	# link.mtu: ручной/пробитый override (UCI mtu) перекрывает профильный 'auto'
-	[ "$1" = "link.mtu" ] && { echo "$(st_cfg mtu "$_eff")"; return; }
+	# link.mtu: ручное число (UCI mtu) > последний пробитый (mtu_resolved) > 'auto'
+	if [ "$1" = "link.mtu" ]; then
+		_mv=$(st_cfg mtu auto)
+		case "$_mv" in
+			''|auto) _r=$(st_cfg mtu_resolved ""); [ -n "$_r" ] && echo "$_r" || echo auto ;;
+			*)       echo "$_mv" ;;
+		esac
+		return
+	fi
 	echo "$_eff"
 }
 
-# Желательна ли категория (тумблер). Дефолты = общий пресет профилей.
-st_cat_enabled() {
-	case "$1" in
-		net_buffers|low_latency|conntrack) [ "$(st_cfg "$1" 1)" = "1" ] ;;
-		congestion|mobile_lte)             [ "$(st_cfg "$1" 1)" = "1" ] ;;
-		disable_ipv6)                      [ "$(st_cfg "$1" 1)" = "1" ] ;;
-		backlog|flow_offload|irqbalance)   [ "$(st_cfg "$1" 0)" = "1" ] ;;
-		*) false ;;
-	esac
-}
-
-st_param_desired() {
-	# st_param_desired <category> <key>
-	st_cat_enabled "$1" || return 1
-	if [ "$2" = "firewall.flow_offloading_hw" ]; then
-		[ "$(st_cfg flow_offload_hw 0)" = "1" ] || return 1
+# ---------------------------------------------------------------------------
+# Per-param тумблеры (по умолчанию ВСЕ включены; выключенные хранятся в
+# UCI-списке param_off / в тест-файле строками off=<key>).
+# ---------------------------------------------------------------------------
+st_param_enabled() {  # <key> -> 0 если параметр включён
+	if [ -n "${ST_CFG_FILE:-}" ] && [ -f "$ST_CFG_FILE" ]; then
+		grep -qxF "off=$1" "$ST_CFG_FILE" 2>/dev/null && return 1
+		return 0
 	fi
+	for _k in $(uci -q get streamtune.global.param_off 2>/dev/null); do
+		[ "$_k" = "$1" ] && return 1
+	done
 	return 0
 }
+
+# ---------------------------------------------------------------------------
+# Память «применённого» (state-файл): key<TAB>исходное-значение.
+# Наличие ключа => Applied (мы меняли). Значение => для отката.
+# ---------------------------------------------------------------------------
+st_state_has() {  # <key>
+	[ -f "$ST_STATE_FILE" ] || return 1
+	awk -F'\t' -v k="$1" '$1==k{f=1} END{exit !f}' "$ST_STATE_FILE"
+}
+st_state_orig() {  # <key> -> исходное значение
+	[ -f "$ST_STATE_FILE" ] || return 0
+	awk -F'\t' -v k="$1" '$1==k{print substr($0,index($0,"\t")+1); exit}' "$ST_STATE_FILE"
+}
+st_state_add() {  # <key> <orig> (идемпотентно — первый раз фиксирует оригинал)
+	st_state_has "$1" && return 0
+	mkdir -p "$(dirname "$ST_STATE_FILE")" 2>/dev/null
+	printf '%s\t%s\n' "$1" "$2" >> "$ST_STATE_FILE"
+}
+st_state_clear() { rm -f "$ST_STATE_FILE" 2>/dev/null; }
 
 # ---------------------------------------------------------------------------
 # WAN-детект (профиле-зависимый). Modem — через ModemManager.
@@ -229,8 +253,9 @@ st_read_current() {
 			_p=$(st_sysctl_path "$2"); [ -r "$_p" ] && st_norm "$(cat "$_p" 2>/dev/null)" ;;
 		firewall)
 			if [ -n "${ST_FW_FILE:-}" ] && [ -f "$ST_FW_FILE" ]; then
-				sed -n "s/^$2=//p" "$ST_FW_FILE" | head -1
-			else uci -q get "firewall.@defaults[0].$2" 2>/dev/null; fi ;;
+				_v=$(sed -n "s/^$2=//p" "$ST_FW_FILE" | head -1)
+			else _v=$(uci -q get "firewall.@defaults[0].$2" 2>/dev/null); fi
+			echo "${_v:-0}" ;;
 		sysfs)
 			[ -r "$ST_SYSFS_HASHSIZE" ] && st_norm "$(cat "$ST_SYSFS_HASHSIZE" 2>/dev/null)" ;;
 		service) st_service_state "$2" ;;
@@ -303,30 +328,34 @@ st_service_state() {
 }
 
 # ---------------------------------------------------------------------------
-# Состояние параметра (см. detect.sh); managed=0 => @default => "unmanaged".
+# Состояние параметра — 3 статуса:
+#   applied — текущее == рекомендованного И мы это меняли (есть в state-файле);
+#   match   — текущее == рекомендованного, но мы не трогали (совпало само);
+#   off     — текущее != рекомендованного (ещё не приведено к рекомендации).
+# Особый edge: unavailable — параметр нельзя применить (нет пакета/возможности),
+# в проценте соответствия не учитывается.
 # ---------------------------------------------------------------------------
 st_param_state() {
-	# <category> <key> <type> <cur> <rec> <managed 0/1>
-	_cat="$1"; _key="$2"; _typ="$3"; _cur="$4"; _rec="$5"; _managed="$6"
-	if [ "$_managed" = "0" ]; then
-		st_cat_enabled "$_cat" && echo unmanaged || echo off; return
-	fi
-	if ! st_param_desired "$_cat" "$_key"; then
-		if [ -n "$_cur" ] && [ "$(st_norm "$_cur")" = "$(st_norm "$_rec")" ]; then echo match; else echo off; fi
-		return
-	fi
+	# <category> <key> <type> <cur> <rec>
+	_cat="$1"; _key="$2"; _typ="$3"; _cur="$4"; _rec="$5"
 	case "$_cat" in
 		congestion) [ "$_key" = "net.ipv4.tcp_congestion_control" ] && [ "$(st_cap_bbr)" != "1" ] && { echo unavailable; return; } ;;
 		irqbalance) [ "$(st_cap_irqbalance)" = "1" ] || { echo unavailable; return; } ;;
 	esac
-	if [ "$_typ" = "service" ]; then [ "$_cur" = "$_rec" ] && echo applied || echo pending; return; fi
-	if [ "$_typ" = "mss" ]; then [ "$_cur" = "1" ] && echo applied || echo pending; return; fi
-	if [ "$_rec" = "auto" ]; then
-		# MTU: сравниваем с последним применённым (mtu_resolved)
-		_res=$(st_cfg mtu_resolved "")
-		if [ -z "$_res" ]; then echo pending; return; fi
-		[ "$(st_norm "$_cur")" = "$(st_norm "$_res")" ] && echo applied || echo pending; return
+	_m=0
+	case "$_typ" in
+		service) [ "$_cur" = "$_rec" ] && _m=1 ;;
+		mss)     [ "$_cur" = "1" ] && _m=1 ;;
+		mtu)
+			case "$_rec" in
+				''|auto) _m=0 ;;
+				*) [ -n "$_cur" ] && [ "$(st_norm "$_cur")" = "$(st_norm "$_rec")" ] && _m=1 ;;
+			esac ;;
+		*) [ -n "$_cur" ] && [ "$(st_norm "$_cur")" = "$(st_norm "$_rec")" ] && _m=1 ;;
+	esac
+	if [ "$_m" = "1" ]; then
+		st_state_has "$_key" && echo applied || echo match
+	else
+		echo off
 	fi
-	if [ -z "$_cur" ]; then echo unavailable; return; fi
-	[ "$(st_norm "$_cur")" = "$(st_norm "$_rec")" ] && echo applied || echo pending
 }

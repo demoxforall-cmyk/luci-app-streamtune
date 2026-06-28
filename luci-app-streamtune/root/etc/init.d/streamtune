@@ -16,7 +16,7 @@ ST_SHARE=/usr/share/streamtune
 start_service() {
 	[ -r "$ST_SHARE/lib.sh" ] || return 0
 	. "$ST_SHARE/lib.sh"
-	if [ "$(st_cfg conntrack 1)" = "1" ] && [ -w "$ST_SYSFS_HASHSIZE" ]; then
+	if st_param_enabled nf_conntrack.hashsize && [ -w "$ST_SYSFS_HASHSIZE" ]; then
 		echo "$(st_hashsize)" > "$ST_SYSFS_HASHSIZE" 2>/dev/null
 	fi
 	procd_open_instance

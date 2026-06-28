@@ -57,7 +57,8 @@ return view.extend({
 					E('li', {}, _('A router only forwards your phone’s streams — it is not the TCP endpoint. So TCP/buffer sysctls (tagged “router-only”) affect only the router’s own traffic, not the audio stream.')),
 					E('li', {}, _('Keep IPv6 enabled and the modem APN as IPV4V6: mobile carriers often use 464XLAT/CLAT, and disabling IPv6 can break connectivity.')),
 					E('li', {}, _('When several devices share the car link, install luci-app-sqm with cake-autorate (adaptive shaping for variable cellular bandwidth) — for a single audio stream it is not needed.')),
-					E('li', {}, _('In a moving vehicle do not hard-lock LTE bands — free handover keeps coverage continuous; add a modem keepalive/watchdog for stuck connections.'))
+					E('li', {}, _('In a moving vehicle do not hard-lock LTE bands — free handover keeps coverage continuous; add a modem keepalive/watchdog for stuck connections.')),
+					E('li', {}, _('“RX backlog drops / NAPI squeezes” above is informational: non-zero values mean the per-CPU packet queue or NAPI budget is saturating — the netdev_max_backlog / netdev_budget recommendations directly address that.'))
 				])
 			])
 		]);
@@ -126,6 +127,8 @@ return view.extend({
 				[ _('RAM available'), mb(sys.mem_free_kb || 0) ],
 				[ _('Tracked connections'), (sys.conntrack_count != null)
 					? ((sys.conntrack_count || 0) + ' / ' + (sys.conntrack_max || '—')) : '—' ],
+				[ _('RX backlog drops / NAPI squeezes'), (sys.softnet_drop != null)
+					? ((sys.softnet_drop || 0) + ' / ' + (sys.softnet_squeeze || 0)) : '—' ],
 				[ _('Active profile'), (st.PROFILE_NAMES && st.PROFILE_NAMES[cfg.profile]) || cfg.profile || '—' ],
 				[ _('BBR'), st.bbrText(caps) ],
 				[ _('WAN interface'), caps.wan ? caps.wan : '—' ]

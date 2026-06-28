@@ -5,9 +5,13 @@
 'require poll';
 'require streamtune';
 
-/* StreamTune — дашборд: профиль (generic / Auto LTE-audio), оценка здоровья,
- * карточки категорий с тумблерами, построчный статус параметров, применение
- * и откат. */
+/* StreamTune — дашборд: профиль (Auto LTE / Home wired), оценка соответствия,
+ * карточки категорий с мастер-переключателем, построчный статус параметров с
+ * ИНДИВИДУАЛЬНЫМ тумблером у каждого параметра, применение и откат.
+ *
+ * Статусы (3): Applied (мы изменили) | Matches (совпало само) | Off (отличается).
+ * Процент = (Applied + Matches) / всего (кроме Unavailable). Тумблер только
+ * выбирает, что попадёт в следующее «Применить»; на статус он не влияет. */
 
 var st = streamtune;
 
@@ -29,11 +33,14 @@ return view.extend({
 
 	render: function(data) {
 		st.injectCSS();
-		this.toggles = {};
+		this.paramRows = {};
+		this.paramSw = {};
+		this.masterSw = {};
+		this.catKeys = {};
 		this.tbodies = {};
 		this.counters = {};
 		this.profileBtns = {};
-		this.draft = this.cfgToDraft(data.config || {});
+		this.draft = this.cfgToDraft(data);
 		this.savedProfile = (data.config && data.config.profile) || 'lte_audio';
 		this.caps = data.caps || {};
 
@@ -60,7 +67,7 @@ return view.extend({
 			this.gaugeBox,
 			E('div', { 'class': 'st-head-r' }, [
 				E('h2', {}, [ st.icon('rocket'), _('Stream Optimizer') ]),
-				E('p', { 'class': 'st-head-desc' }, _('Tune the network stack for low-latency, low-jitter audio/video streaming. Pick a profile, review each parameter and apply.')),
+				E('p', { 'class': 'st-head-desc' }, _('Tune the network stack for low-latency, low-jitter audio/video streaming. Pick a profile, toggle the parameters you want and apply.')),
 				E('div', { 'class': 'st-profile-row' }, [
 					E('span', { 'class': 'st-profile-label' }, _('Profile:')), seg
 				]),
@@ -70,7 +77,7 @@ return view.extend({
 					E('button', { 'class': 'btn cbi-button-positive', 'click': ui.createHandlerFn(this, 'handleApply') },
 						[ st.icon('check'), _('Apply selected') ]),
 					E('button', { 'class': 'btn cbi-button-reset', 'click': ui.createHandlerFn(this, 'handleRevert') },
-						_('Revert all'))
+						_('Reset all'))
 				])
 			])
 		]);
@@ -89,30 +96,72 @@ return view.extend({
 		return E('div', { 'class': 'st-wrap' }, [ head, grid ]);
 	},
 
-	/* config (строки '0'/'1') -> draft */
-	cfgToDraft: function(cfg) {
-		var d = {};
-		st.CATS.forEach(function(c) { d[c] = (cfg[c] === '1' || cfg[c] === 1) ? 1 : 0; });
-		d.flow_offload_hw = (cfg.flow_offload_hw === '1' || cfg.flow_offload_hw === 1) ? 1 : 0;
-		d.profile = cfg.profile || 'lte_audio';
-		d.wan_iface = cfg.wan_iface || '';
-		d.mtu = cfg.mtu || 'auto';
+	/* status JSON -> draft (профиль, WAN, MTU, per-param enabled) */
+	cfgToDraft: function(data) {
+		var cfg = (data && data.config) || {};
+		var d = { profile: cfg.profile || 'lte_audio', wan_iface: cfg.wan_iface || '',
+		          mtu: cfg.mtu || 'auto', enabled: {} };
+		((data && data.params) || []).forEach(function(p) {
+			d.enabled[p.key] = (p.enabled === 1 || p.enabled === true);
+		});
 		return d;
+	},
+
+	/* Текст ячейки «Рекомендовано» (MTU подменяем пробитым/ручным значением) */
+	recText: function(p) {
+		if (p.key === 'link.mtu' && this.draft.mtu && this.draft.mtu !== 'auto') return '' + this.draft.mtu;
+		return (p.rec === '' || p.rec == null) ? '—' : '' + p.rec;
+	},
+
+	/* Строка параметра: [тумблер] имя · рекомендовано · текущее · статус */
+	buildParamRow: function(p) {
+		var sw = E('input', { 'type': 'checkbox' });
+		sw.checked = !!this.draft.enabled[p.key];
+		sw.disabled = (p.state === 'unavailable');
+		sw.addEventListener('change', L.bind(function() {
+			this.draft.enabled[p.key] = sw.checked;
+			this.syncMaster(p.cat);
+		}, this));
+		this.paramSw[p.key] = sw;
+
+		var tr = E('tr', { 'class': 'st-prow st-row-' + p.state, 'data-key': p.key }, [
+			E('td', { 'class': 'st-psw' }, [ E('label', { 'class': 'st-switch st-switch-sm' }, [ sw, E('span', { 'class': 'st-slider' }) ]) ]),
+			st.pNameCell(p.key),
+			E('td', { 'class': 'st-prec' }, this.recText(p)),
+			E('td', { 'class': 'st-pcur' }, st.fmtCur(p)),
+			E('td', { 'class': 'st-pst' }, [ st.statusBadge(p.state) ])
+		]);
+		this.paramRows[p.key] = tr;
+		return tr;
+	},
+
+	/* Обновить ячейки существующей строки (НЕ трогая тумблер) */
+	updateParamRow: function(tr, p) {
+		tr.className = 'st-prow st-row-' + p.state;
+		var rec = tr.querySelector('.st-prec'); if (rec) rec.textContent = this.recText(p);
+		var cur = tr.querySelector('.st-pcur'); if (cur) cur.textContent = st.fmtCur(p);
+		var stc = tr.querySelector('.st-pst'); if (stc) dom.content(stc, [ st.statusBadge(p.state) ]);
+		var sw = this.paramSw[p.key]; if (sw) sw.disabled = (p.state === 'unavailable');
 	},
 
 	buildCard: function(cat, data) {
 		var meta = st.catMeta(cat);
-		var ci = (data.categories || {})[cat] || { kind: 'safe', requires: '', applied: 0, total: 0 };
+		var ci = (data.categories || {})[cat] || { kind: 'safe', requires: '', count: 0 };
+		var params = (data.params || []).filter(function(p) { return p.cat === cat; });
+		this.catKeys[cat] = params.map(function(p) { return p.key; });
 
-		var sw = E('input', { 'type': 'checkbox' });
-		sw.checked = !!this.draft[cat];
+		/* мастер-переключатель блока: вкл/выкл все параметры категории */
+		var ms = E('input', { 'type': 'checkbox' });
 		var card = E('div', { 'class': 'st-card' });
-		sw.addEventListener('change', L.bind(function() {
-			this.draft[cat] = sw.checked ? 1 : 0;
-			card.classList.toggle('st-card-on', sw.checked);
-			if (cat === 'flow_offload' && this.hwToggle) this.hwToggle.disabled = !sw.checked;
+		this.masterSw[cat] = ms;
+		ms.addEventListener('change', L.bind(function() {
+			var on = ms.checked;
+			(this.catKeys[cat] || []).forEach(L.bind(function(k) {
+				this.draft.enabled[k] = on;
+				var s = this.paramSw[k]; if (s && !s.disabled) s.checked = on;
+			}, this));
+			this.syncMaster(cat);
 		}, this));
-		this.toggles[cat] = sw;
 
 		var kindBadge = '';
 		if (ci.kind === 'opt')  kindBadge = E('span', { 'class': 'st-kind st-kind-opt' }, _('optional'));
@@ -127,7 +176,7 @@ return view.extend({
 				E('div', { 'class': 'st-card-title' }, [ meta.title, kindBadge, counter ]),
 				E('div', { 'class': 'st-card-desc' }, meta.desc)
 			]),
-			E('label', { 'class': 'st-switch' }, [ sw, E('span', { 'class': 'st-slider' }) ])
+			E('label', { 'class': 'st-switch', 'title': _('Enable/disable every parameter in this block') }, [ ms, E('span', { 'class': 'st-slider' }) ])
 		]);
 
 		var body = E('div', { 'class': 'st-card-b' });
@@ -135,24 +184,7 @@ return view.extend({
 		if (cat === 'congestion' && this.caps.bbr === 0) body.appendChild(pkgNote('kmod-tcp-bbr'));
 		if (cat === 'irqbalance' && this.caps.irqbalance === 0) body.appendChild(pkgNote('irqbalance'));
 
-		/* под-опция: аппаратный offload */
-		if (cat === 'flow_offload') {
-			var hw = E('input', { 'type': 'checkbox' });
-			hw.checked = !!this.draft.flow_offload_hw;
-			hw.disabled = !this.draft.flow_offload;
-			hw.addEventListener('change', L.bind(function() {
-				this.draft.flow_offload_hw = hw.checked ? 1 : 0;
-			}, this));
-			this.hwToggle = hw;
-			var hwNote = (this.caps.hw_offload === 0)
-				? E('span', { 'class': 'st-sub-note' }, _('(hardware offload not detected on this device)'))
-				: '';
-			body.appendChild(E('label', { 'class': 'st-subopt' }, [
-				hw, E('span', {}, _('Enable hardware NAT offloading')), hwNote
-			]));
-		}
-
-		/* mobile LTE: поле WAN-интерфейса */
+		/* mobile LTE: поле WAN-интерфейса + кнопка пробы MTU */
 		if (cat === 'mobile_lte') {
 			var wanIn = E('input', { 'type': 'text', 'class': 'cbi-input-text',
 				'placeholder': (this.caps.wan ? this.caps.wan : _('auto-detect')), 'value': this.draft.wan_iface || '' });
@@ -170,10 +202,11 @@ return view.extend({
 			]));
 		}
 
-		var tbody = E('tbody');
+		var tbody = E('tbody', {}, params.map(L.bind(this.buildParamRow, this)));
 		this.tbodies[cat] = tbody;
 		body.appendChild(E('table', { 'class': 'st-table' }, [
 			E('thead', {}, E('tr', {}, [
+				E('th', { 'class': 'st-th-sw' }, _('On')),
 				E('th', {}, _('Parameter')),
 				E('th', {}, _('Recommended')),
 				E('th', {}, _('Current')),
@@ -182,10 +215,22 @@ return view.extend({
 			tbody
 		]));
 
-		card.classList.toggle('st-card-on', !!this.draft[cat]);
 		if (ci.kind === 'risk') card.classList.add('st-card-risk');
 		dom.append(card, [ header, body ]);
+		this.syncMaster(cat);
 		return card;
+	},
+
+	/* Привести мастер-переключатель категории к состоянию её параметров */
+	syncMaster: function(cat) {
+		var ms = this.masterSw[cat]; if (!ms) return;
+		var keys = this.catKeys[cat] || [];
+		var on = 0;
+		keys.forEach(L.bind(function(k) { if (this.draft.enabled[k]) on++; }, this));
+		ms.checked = (on > 0);
+		ms.indeterminate = (on > 0 && on < keys.length);
+		var card = ms.closest('.st-card');
+		if (card) card.classList.toggle('st-card-on', on > 0);
 	},
 
 	/* Обновление статусной части (не трогает тумблеры-черновик) */
@@ -195,8 +240,8 @@ return view.extend({
 		this.caps = data.caps || this.caps;
 		this.savedProfile = (data.config && data.config.profile) || this.savedProfile;
 
-		dom.content(this.gaugeBox, st.scoreGauge(data.score.applied, data.score.total));
-		var pct = data.score.total > 0 ? Math.round(data.score.applied / data.score.total * 100) : 0;
+		dom.content(this.gaugeBox, st.scoreGauge(data.score.good, data.score.total));
+		var pct = data.score.total > 0 ? Math.round(data.score.good / data.score.total * 100) : 0;
 		var bbrChip = (this.caps.bbr === 1)
 			? E('span', { 'class': 'st-pill2',
 				'title': this.caps.bbr_ksize
@@ -205,29 +250,30 @@ return view.extend({
 				'BBR ' + st.bbrVersionLabel(this.caps.bbr_version))
 			: '';
 		dom.content(this.scoreLine, [
-			E('strong', {}, _('%d of %d enabled optimizations applied').format(data.score.applied, data.score.total)),
+			E('strong', {}, _('%d of %d recommendations met').format(data.score.good, data.score.total)),
 			bbrChip,
 			(pct === 100) ? E('span', { 'class': 'st-ok-tag' }, [ st.icon('check'), _('All set') ]) : ''
 		]);
 		this.updateHint();
 
+		/* построить-или-обновить строки (самовосстановление, если первый load упал) */
 		var byCat = {};
 		(data.params || []).forEach(function(p) { (byCat[p.cat] = byCat[p.cat] || []).push(p); });
-
 		st.CATS.forEach(L.bind(function(cat) {
 			var tb = this.tbodies[cat];
-			if (tb) dom.content(tb, (byCat[cat] || []).map(L.bind(st.paramRow, st)));
+			(byCat[cat] || []).forEach(L.bind(function(p) {
+				var tr = this.paramRows[p.key];
+				if (tr) { this.updateParamRow(tr, p); return; }
+				if (this.draft.enabled[p.key] === undefined) this.draft.enabled[p.key] = (p.enabled === 1 || p.enabled === true);
+				if (tb) tb.appendChild(this.buildParamRow(p));
+			}, this));
+			this.syncMaster(cat);
 			var ci = (data.categories || {})[cat];
 			if (ci && this.counters[cat]) {
-				var label = '';
-				if (ci.total > 0) label = ci.applied + '/' + ci.total;
-				else if (ci.match > 0) label = _('%d matching').format(ci.match);
-				dom.content(this.counters[cat], label);
+				var good = (ci.applied || 0) + (ci.match || 0);
+				dom.content(this.counters[cat], ci.count > 0 ? (good + '/' + ci.count) : '');
 			}
 		}, this));
-
-		/* пробитый/ручной MTU показываем в «Рекомендовано» */
-		if (this.draft && this.draft.mtu && this.draft.mtu !== 'auto') this.setMtuRec(this.draft.mtu);
 	},
 
 	updateHint: function() {
@@ -236,11 +282,13 @@ return view.extend({
 		this.hintBox.style.display = changed ? '' : 'none';
 	},
 
+	/* draft -> [profile, param_off(csv), wan_iface, mtu] */
 	collect: function() {
-		var d = this.draft, b = function(v) { return v ? '1' : '0'; };
-		return [ d.profile || 'lte_audio', b(d.net_buffers), b(d.low_latency), b(d.backlog),
-		         b(d.congestion), b(d.flow_offload), b(d.flow_offload_hw), b(d.conntrack),
-		         b(d.irqbalance), b(d.disable_ipv6), b(d.mobile_lte), d.wan_iface || '', d.mtu || 'auto' ];
+		var off = [];
+		Object.keys(this.draft.enabled).forEach(L.bind(function(k) {
+			if (!this.draft.enabled[k]) off.push(k);
+		}, this));
+		return [ this.draft.profile || 'lte_audio', off.join(','), this.draft.wan_iface || '', this.draft.mtu || 'auto' ];
 	},
 
 	report: function(res) {
@@ -261,12 +309,14 @@ return view.extend({
 			.then(L.bind(this.refresh, this));
 	},
 
-	/* Выбор профиля: проставить пресет тумблеров (без применения) */
+	/* Выбор профиля (без применения) — значения параметров одинаковы, меняется
+	 * только авто-детект WAN; подсказка зовёт нажать «Применить». */
 	handleProfile: function(prof) {
 		this.draft.profile = prof;
-		var preset = st.PROFILES[prof] || {};
-		Object.keys(preset).forEach(L.bind(function(k) { this.draft[k] = preset[k]; }, this));
-		this.syncToggles();
+		Object.keys(this.profileBtns || {}).forEach(L.bind(function(p) {
+			this.profileBtns[p].classList.toggle('st-on', prof === p);
+		}, this));
+		this.updateHint();
 		var name = st.PROFILE_NAMES[prof] || prof;
 		ui.addNotification(null, E('p', {}, _('Profile “%s” selected. Press “Apply selected” to activate.').format(name)), 'info');
 		return Promise.resolve();
@@ -288,41 +338,34 @@ return view.extend({
 
 	/* Подставить значение MTU в колонку «Рекомендовано» строки link.mtu */
 	setMtuRec: function(val) {
-		var tb = this.tbodies && this.tbodies.mobile_lte;
-		if (!tb) return;
-		var cell = tb.querySelector('tr[data-key="link.mtu"] .st-prec');
+		var tr = this.paramRows && this.paramRows['link.mtu'];
+		if (!tr) return;
+		var cell = tr.querySelector('.st-prec');
 		if (cell) cell.textContent = val;
 	},
 
 	handleRevert: function() {
-		if (!confirm(_('Revert all StreamTune optimizations and turn all toggles off?')))
+		if (!confirm(_('Reset all StreamTune changes back to their original values and clear the applied-state memory?')))
 			return Promise.resolve();
 		return st.rpc.revert()
 			.then(L.bind(function() {
-				ui.addNotification(null, E('p', {}, _('Reverted. Buffer-size sysctls return to defaults after reboot.')), 'info');
+				ui.addNotification(null, E('p', {}, _('Reset done. Applied parameters were restored to their original values.')), 'info');
 			}, this))
 			.then(L.bind(this.load, this))
 			.then(L.bind(function(data) {
-				this.draft = this.cfgToDraft(data.config || {});
+				this.draft = this.cfgToDraft(data);
 				this.savedProfile = (data.config && data.config.profile) || 'lte_audio';
-				this.syncToggles();
+				this.syncSwitches();
 				this.renderStatus(data);
 			}, this));
 	},
 
-	/* Привести DOM (тумблеры, селектор профиля, поля) к this.draft */
-	syncToggles: function() {
-		st.CATS.forEach(L.bind(function(cat) {
-			var sw = this.toggles[cat];
-			if (!sw) return;
-			sw.checked = !!this.draft[cat];
-			var card = sw.closest('.st-card');
-			if (card) card.classList.toggle('st-card-on', !!this.draft[cat]);
+	/* Привести тумблеры/поля к this.draft (после отката/перезагрузки) */
+	syncSwitches: function() {
+		Object.keys(this.paramSw || {}).forEach(L.bind(function(k) {
+			var sw = this.paramSw[k]; if (sw) sw.checked = !!this.draft.enabled[k];
 		}, this));
-		if (this.hwToggle) {
-			this.hwToggle.checked = !!this.draft.flow_offload_hw;
-			this.hwToggle.disabled = !this.draft.flow_offload;
-		}
+		st.CATS.forEach(L.bind(this.syncMaster, this));
 		if (this.wanInput) this.wanInput.value = this.draft.wan_iface || '';
 		Object.keys(this.profileBtns || {}).forEach(L.bind(function(p) {
 			this.profileBtns[p].classList.toggle('st-on', this.draft.profile === p);

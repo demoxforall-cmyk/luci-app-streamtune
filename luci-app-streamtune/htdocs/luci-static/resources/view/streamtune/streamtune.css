@@ -83,6 +83,16 @@
 }
 .st-switch input:checked + .st-slider { background: var(--st-accent); }
 .st-switch input:checked + .st-slider::before { transform: translateX(20px); }
+/* мастер-переключатель в промежуточном состоянии (часть параметров включена) */
+.st-switch input:indeterminate + .st-slider { background: color-mix(in srgb, var(--st-accent) 45%, transparent); }
+.st-switch input:indeterminate + .st-slider::before { transform: translateX(10px); }
+/* компактный тумблер для строки параметра */
+.st-switch-sm { width: 34px; height: 18px; }
+.st-switch-sm .st-slider { border-radius: 18px; }
+.st-switch-sm .st-slider::before { height: 12px; width: 12px; left: 3px; top: 3px; }
+.st-switch-sm input:checked + .st-slider::before { transform: translateX(16px); }
+.st-switch-sm input:indeterminate + .st-slider::before { transform: translateX(8px); }
+.st-switch-sm input:disabled + .st-slider { opacity: .4; cursor: not-allowed; }
 
 /* ---------- sub-option ---------- */
 .st-subopt { display: flex; align-items: center; gap: 8px; padding: 8px 0 4px; font-size: 13px; }
@@ -96,6 +106,10 @@
 }
 .st-table td { padding: 6px 8px; border-bottom: 1px solid var(--st-soft); vertical-align: middle; }
 .st-table tr:last-child td { border-bottom: none; }
+.st-th-sw, .st-psw { width: 44px; text-align: center; }
+.st-psw { padding-left: 2px; padding-right: 2px; }
+/* строка с выключенным тумблером всё равно показывает реальный статус —
+   приглушаем только Off; Applied/Matches остаются яркими */
 .st-pkey { border-bottom: 1px dotted var(--st-mut); cursor: help; }
 .st-prec, .st-pcur { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 12px; }
 .st-pcur { color: var(--st-mut); }

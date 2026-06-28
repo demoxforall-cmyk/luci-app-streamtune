@@ -33,6 +33,9 @@ else
 	ck "congestion control" 2 "$v — bbr НЕ установлен (kmod-tcp-bbr); fq_codel важнее"
 fi
 v=$(sv net.netfilter.nf_conntrack_tcp_timeout_established); eq "$v" 7440 && ck "conntrack established timeout" 0 "$v" || ck "conntrack established timeout" 2 "$v (ожид. 7440)"
+v=$(sv net.ipv4.tcp_max_tw_buckets); eq "$v" 65536 && ck "tcp_max_tw_buckets" 0 "$v" || ck "tcp_max_tw_buckets" 2 "$v (ожид. 65536)"
+v=$(sv net.core.netdev_budget); eq "$v" 600 && ck "netdev_budget" 0 "$v" || ck "netdev_budget" 2 "$v (ожид. 600)"
+v=$(sv net.core.netdev_budget_usecs); eq "$v" 4000 && ck "netdev_budget_usecs" 0 "$v" || ck "netdev_budget_usecs" 2 "$v (ожид. 4000)"
 
 echo "--- BBR версия (по размеру модуля; modinfo вырезан) ---"
 bv=$(st_bbr_version); bs=$(st_bbr_ksize)
@@ -77,6 +80,14 @@ echo "--- conntrack ---"
 hs=$(cat "$ST_SYSFS_HASHSIZE" 2>/dev/null); ck "conntrack hashsize" 0 "${hs:-?}"
 cc=$(cat /proc/sys/net/netfilter/nf_conntrack_count 2>/dev/null); cm2=$(cat /proc/sys/net/netfilter/nf_conntrack_max 2>/dev/null)
 ck "conntrack записей" 0 "${cc:-?}/${cm2:-?}"
+
+echo "--- память применённого (state-файл) ---"
+if [ -f "$ST_STATE_FILE" ]; then
+	n=$(grep -c . "$ST_STATE_FILE" 2>/dev/null)
+	ck "state-файл" 0 "$ST_STATE_FILE — изменено параметров (Applied): ${n:-0}"
+else
+	ck "state-файл" 2 "нет $ST_STATE_FILE (через «Применить» ещё ничего не меняли, либо всё было Matches)"
+fi
 
 echo "--- логи (последние ошибки/предупреждения) ---"
 if command -v logread >/dev/null 2>&1; then

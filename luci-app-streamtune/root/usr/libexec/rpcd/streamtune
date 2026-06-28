@@ -2,12 +2,13 @@
 # rpcd-бэкенд для luci-app-streamtune.
 # SPDX-License-Identifier: GPL-2.0
 #
-# Тонкий мост ubus<->shell: get_status/get_boot отдают JSON автономных скриптов
-# (detect.sh/boot.sh), apply пишет тумблеры в UCI и запускает apply.sh, revert —
-# откат. Реестр параметров и логика — в /usr/share/streamtune/.
+# Тонкий мост ubus<->shell: get_status/get_boot/probe_mtu отдают JSON автономных
+# скриптов, apply пишет профиль + список выключенных параметров (param_off) в UCI
+# и запускает apply.sh, revert — откат. Реестр и логика — в /usr/share/streamtune/.
 . /usr/share/libubox/jshn.sh
 
 ST_SHARE="${ST_SHARE:-/usr/share/streamtune}"
+. "$ST_SHARE/lib.sh"
 
 ensure_cfg() {
 	uci -q get streamtune.global >/dev/null 2>&1 || {
@@ -20,41 +21,39 @@ case "$1" in
 	list)
 		cat <<JSON
 { "get_status":{}, "get_boot":{}, "probe_mtu":{},
-  "apply":{ "profile":"", "net_buffers":"", "low_latency":"", "backlog":"", "congestion":"",
-            "flow_offload":"", "flow_offload_hw":"", "conntrack":"", "irqbalance":"",
-            "disable_ipv6":"", "mobile_lte":"", "wan_iface":"", "mtu":"" },
+  "apply":{ "profile":"", "param_off":"", "wan_iface":"", "mtu":"" },
   "revert":{} }
 JSON
 		;;
 	call)
 		case "$2" in
 			get_status)
-				# полный статус всех параметров + оценка здоровья
 				sh "$ST_SHARE/detect.sh" ;;
 			get_boot)
-				# таймлайн загрузки + сведения о системе
 				sh "$ST_SHARE/boot.sh" ;;
 			probe_mtu)
-				# определить path MTU к интернету (DF-проба / tracepath)
 				sh "$ST_SHARE/mtu_probe.sh" ;;
 			apply)
 				read -r input
 				json_load "$input"
 				ensure_cfg
-				# булевы тумблеры
-				for opt in net_buffers low_latency backlog congestion \
-				           flow_offload flow_offload_hw conntrack irqbalance \
-				           disable_ipv6 mobile_lte; do
-					json_get_var v "$opt"
-					case "$v" in
-						0|1) uci set "streamtune.global.$opt=$v" ;;
-					esac
-				done
 				# профиль (только известные значения)
 				json_get_var prof profile
 				case "$prof" in
 					lte_audio|home_wired) uci set "streamtune.global.profile=$prof" ;;
 				esac
+				# param_off: список выключенных ключей (валидируем по реестру)
+				json_get_var poff param_off
+				uci -q delete streamtune.global.param_off 2>/dev/null
+				all_keys=$(st_registry | cut -d'|' -f2)
+				oldIFS=$IFS; IFS=', '
+				for k in $poff; do
+					[ -n "$k" ] || continue
+					case " $all_keys " in
+						*" $k "*) uci add_list "streamtune.global.param_off=$k" ;;
+					esac
+				done
+				IFS=$oldIFS
 				# WAN-интерфейс (опционально, валидное имя секции UCI)
 				json_get_var wif wan_iface
 				case "$wif" in

@@ -26,5 +26,18 @@ mfree=$(awk '/^MemAvailable:/{print $2}' "$ST_PROC/meminfo" 2>/dev/null); [ -n "
 ctc=$(cat "$ST_PROC/sys/net/netfilter/nf_conntrack_count" 2>/dev/null); [ -n "$ctc" ] || ctc=0
 ctm=$(cat "$ST_PROC/sys/net/netfilter/nf_conntrack_max" 2>/dev/null); [ -n "$ctm" ] || ctm=0
 
-printf ',"sys":{"cpus":%s,"mem_total_kb":%s,"mem_free_kb":%s,"conntrack_count":%s,"conntrack_max":%s}}\n' \
-	"$cpus" "$mtot" "$mfree" "$ctc" "$ctm"
+# softnet_stat (hex по CPU): col2 = dropped (backlog переполнен -> netdev_max_backlog),
+# col3 = squeezed (исчерпан бюджет NAPI -> netdev_budget/_usecs). Справочно.
+sndrop=0; snsqueeze=0
+if [ -r "$ST_PROC/net/softnet_stat" ]; then
+	while read -r c1 c2 c3 _r; do
+		case "$c2$c3" in *[!0-9a-fA-F]*|'') continue ;; esac
+		sndrop=$(( sndrop + 0x$c2 )); snsqueeze=$(( snsqueeze + 0x$c3 ))
+	done < "$ST_PROC/net/softnet_stat"
+	# защита от переполнения 32-битной арифметики ash на 32-бит сборках
+	case "$sndrop" in -*) sndrop=0 ;; esac
+	case "$snsqueeze" in -*) snsqueeze=0 ;; esac
+fi
+
+printf ',"sys":{"cpus":%s,"mem_total_kb":%s,"mem_free_kb":%s,"conntrack_count":%s,"conntrack_max":%s,"softnet_drop":%s,"softnet_squeeze":%s}}\n' \
+	"$cpus" "$mtot" "$mfree" "$ctc" "$ctm" "$sndrop" "$snsqueeze"

@@ -412,3 +412,39 @@ msgstr "Когда канал в машине делят несколько ус
 
 msgid "In a moving vehicle do not hard-lock LTE bands — free handover keeps coverage continuous; add a modem keepalive/watchdog for stuck connections."
 msgstr "В движущейся машине не лочьте жёстко LTE-бэнды — свободный хэндовер сохраняет покрытие; добавьте keepalive/watchdog модема для зависших соединений."
+
+msgid "“RX backlog drops / NAPI squeezes” above is informational: non-zero values mean the per-CPU packet queue or NAPI budget is saturating — the netdev_max_backlog / netdev_budget recommendations directly address that."
+msgstr "«Дропы RX-очереди / squeeze NAPI» выше — справочно: ненулевые значения означают, что очередь пакетов на CPU или бюджет NAPI насыщаются — рекомендации netdev_max_backlog / netdev_budget как раз это и лечат."
+
+msgid "On"
+msgstr "Вкл"
+
+msgid "Reset all"
+msgstr "Сбросить всё"
+
+msgid "Enable/disable every parameter in this block"
+msgstr "Включить/выключить все параметры блока"
+
+msgid "%d of %d recommendations met"
+msgstr "Выполнено рекомендаций: %d из %d"
+
+msgid "Tune the network stack for low-latency, low-jitter audio/video streaming. Pick a profile, toggle the parameters you want and apply."
+msgstr "Настройте сетевой стек под аудио-/видеостриминг с низкой задержкой и джиттером. Выберите профиль, отметьте нужные параметры и примените."
+
+msgid "Reset all StreamTune changes back to their original values and clear the applied-state memory?"
+msgstr "Сбросить все изменения StreamTune к исходным значениям и очистить память применённого?"
+
+msgid "Reset done. Applied parameters were restored to their original values."
+msgstr "Сброшено. Применённые параметры восстановлены к исходным значениям."
+
+msgid "Recommended OFF: NAT offload bypasses the fq_codel AQM and conflicts with Podkop policy-routing. Enable the toggle to enforce it off."
+msgstr "Рекомендуется ВЫКЛ: NAT-offload обходит AQM fq_codel и конфликтует с policy-routing Podkop. Включите тумблер, чтобы принудительно выключить."
+
+msgid "Recommended OFF on a dual-core router (neutral to harmful). Enable the toggle to stop and disable the service."
+msgstr "Рекомендуется ВЫКЛ на двухъядерном роутере (нейтрально/вредно). Включите тумблер, чтобы остановить и отключить службу."
+
+msgid "Time budget per NAPI poll cycle (µs); raise alongside netdev_budget so the packet limit, not the timer, governs."
+msgstr "Временной бюджет одного цикла NAPI-поллинга (мкс); поднимайте вместе с netdev_budget, чтобы лимитом был пакетный, а не таймер."
+
+msgid "RX backlog drops / NAPI squeezes"
+msgstr "Дропы RX-очереди / squeeze NAPI"

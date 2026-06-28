@@ -3,17 +3,9 @@ config streamtune 'global'
 	option profile 'lte_audio'
 	# WAN-интерфейс/netdev вручную (пусто = автоопределение, модем через mmcli)
 	option wan_iface ''
-	# общий пресет (lte_audio и home_wired сейчас совпадают по тумблерам)
-	option net_buffers '1'
-	option low_latency '1'
-	option backlog '0'
-	option congestion '1'
-	option flow_offload '0'
-	option flow_offload_hw '0'
-	option conntrack '1'
-	option irqbalance '0'
-	option disable_ipv6 '1'
-	option mobile_lte '1'
+	# Per-param тумблеры: по умолчанию ВКЛючены ВСЕ рекомендации. Выключенные
+	# параметры перечисляются здесь (list param_off '<sysctl-ключ>'). Пример:
+	#   list param_off 'net.core.netdev_budget'
 	# MTU на WAN: 'auto' (проба) или конкретное число (заполняется кнопкой пробы)
 	option mtu 'auto'
 	# целевой размер хэш-таблицы conntrack

@@ -6,7 +6,7 @@
  * визуальные хелперы (бейджи статуса, кольцо оценки, иконки), загрузка CSS.
  * Реестр параметров — зеркало root/usr/share/streamtune/lib.sh. */
 
-var ST_VER = '2.2';
+var ST_VER = '2.3';
 
 var callStatus = rpc.declare({ object: 'streamtune', method: 'get_status' });
 var callBoot   = rpc.declare({ object: 'streamtune', method: 'get_boot' });
@@ -14,9 +14,7 @@ var callRevert = rpc.declare({ object: 'streamtune', method: 'revert' });
 var callProbe  = rpc.declare({ object: 'streamtune', method: 'probe_mtu' });
 var callApply  = rpc.declare({
 	object: 'streamtune', method: 'apply',
-	params: [ 'profile', 'net_buffers', 'low_latency', 'backlog', 'congestion',
-	          'flow_offload', 'flow_offload_hw', 'conntrack', 'irqbalance',
-	          'disable_ipv6', 'mobile_lte', 'wan_iface', 'mtu' ]
+	params: [ 'profile', 'param_off', 'wan_iface', 'mtu' ]
 });
 
 /* Порядок и метаданные категорий (тумблеров) */
@@ -51,11 +49,11 @@ var CATMETA = {
 	congestion:   { icon: 'gauge',   title: _('Congestion control (BBR + fq)'),
 		desc: _('BBR with fair queueing fights bufferbloat and keeps latency low under load.') },
 	flow_offload: { icon: 'cpu',     title: _('Flow offloading'),
-		desc: _('Offload NAT (software, and hardware on supported SoCs) to cut CPU load and jitter.') },
+		desc: _('Recommended OFF: NAT offload bypasses the fq_codel AQM and conflicts with Podkop policy-routing. Enable the toggle to enforce it off.') },
 	conntrack:    { icon: 'sliders', title: _('Connection tracking'),
 		desc: _('A bigger conntrack hash table speeds up lookups when there are many connections.') },
 	irqbalance:   { icon: 'chip',    title: _('IRQ balancing'),
-		desc: _('Spread network interrupts across CPU cores to smooth out load spikes.') },
+		desc: _('Recommended OFF on a dual-core router (neutral to harmful). Enable the toggle to stop and disable the service.') },
 	disable_ipv6: { icon: 'shield',  title: _('Disable IPv6'),
 		desc: _('On mobile carriers this BREAKS 464XLAT/CLAT and can kill connectivity — keep IPv6 enabled. No audio benefit.') },
 	mobile_lte:   { icon: 'globe',   title: _('Mobile LTE link'),
@@ -91,6 +89,7 @@ var PHELP = {
 	'net.ipv4.tcp_max_tw_buckets':         _('Maximum number of TIME_WAIT sockets.'),
 	'net.core.netdev_max_backlog':         _('Packets queued when an interface delivers faster than the kernel handles.'),
 	'net.core.netdev_budget':              _('Packets processed per NAPI poll cycle.'),
+	'net.core.netdev_budget_usecs':        _('Time budget per NAPI poll cycle (µs); raise alongside netdev_budget so the packet limit, not the timer, governs.'),
 	'net.ipv4.tcp_congestion_control':     _('Congestion control algorithm; bbr is recommended for streaming.'),
 	'net.core.default_qdisc':              _('Default queueing discipline; fq pairs with BBR.'),
 	'firewall.flow_offloading':            _('Software flow offloading in the firewall.'),
@@ -104,13 +103,12 @@ var PHELP = {
 	'link.mss_clamp':                      _('Clamp TCP MSS to the path MTU so large TLS packets do not silently blackhole on the cellular link.')
 };
 
+/* Три статуса соответствия + edge "unavailable" (нельзя применить — нет пакета) */
 var STATE = {
 	applied:     { cls: 'st-ok',    txt: _('Applied') },
-	pending:     { cls: 'st-warn',  txt: _('Not applied') },
-	unavailable: { cls: 'st-mut',   txt: _('Unavailable') },
 	match:       { cls: 'st-match', txt: _('Matches') },
-	unmanaged:   { cls: 'st-mut',   txt: _('Default') },
-	off:         { cls: 'st-off',   txt: _('Off') }
+	off:         { cls: 'st-off',   txt: _('Off') },
+	unavailable: { cls: 'st-mut',   txt: _('Unavailable') }
 };
 
 var ICONS = {
@@ -187,19 +185,12 @@ return baseclass.extend({
 		return (p.cur === '' || p.cur == null) ? '—' : p.cur;
 	},
 
-	/* Строка параметра: имя + рекомендованное + текущее + бейдж */
-	paramRow: function(p) {
-		var help = this.pHelp(p.key);
-		var nameKids = [ E('span', { 'class': 'st-pkey', 'title': help }, this.pLabel(p.key)) ];
-		if (this.routerOnly(p.key))
-			nameKids.push(E('span', { 'class': 'st-tag st-tag-ro', 'title': _('Affects only traffic the router itself originates (DNS, updates) — not devices streaming through it.') }, _('router-only')));
-		var name = E('td', { 'class': 'st-pname' }, nameKids);
-		return E('tr', { 'class': 'st-prow st-row-' + p.state, 'data-key': p.key }, [
-			name,
-			E('td', { 'class': 'st-prec' }, (p.rec === '' || p.rec == null) ? '—' : '' + p.rec),
-			E('td', { 'class': 'st-pcur' }, this.fmtCur(p)),
-			E('td', { 'class': 'st-pst' }, [ this.statusBadge(p.state) ])
-		]);
+	/* Содержимое ячейки имени параметра (метка + тег «router-only») */
+	pNameCell: function(key) {
+		var kids = [ E('span', { 'class': 'st-pkey', 'title': this.pHelp(key) }, this.pLabel(key)) ];
+		if (this.routerOnly(key))
+			kids.push(E('span', { 'class': 'st-tag st-tag-ro', 'title': _('Affects only traffic the router itself originates (DNS, updates) — not devices streaming through it.') }, _('router-only')));
+		return E('td', { 'class': 'st-pname' }, kids);
 	},
 
 	/* Кольцо «оценки здоровья» */

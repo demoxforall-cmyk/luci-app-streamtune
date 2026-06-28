@@ -14,19 +14,29 @@ ND=$(st_wan_netdev)
 BIND=""; [ -n "$ND" ] && BIND="-I $ND"
 
 have() { command -v "$1" >/dev/null 2>&1; }
-ping_df_ok() { ping -M do -s 56 -c1 -W1 127.0.0.1 >/dev/null 2>&1; }
+# Найти ping, реально умеющий DF (`-M do`): iputils в /usr/bin (часто setuid),
+# затем по PATH, затем /bin. BusyBox ping `-M` НЕ поддерживает (ругается и
+# выходит с ошибкой) — проверяем каждого кандидата на loopback и берём первого.
+find_df_ping() {
+	for _p in /usr/bin/ping "$(command -v ping 2>/dev/null)" /bin/ping; do
+		[ -n "$_p" ] && [ -x "$_p" ] || continue
+		"$_p" -M do -s 56 -c1 -W1 127.0.0.1 >/dev/null 2>&1 && { echo "$_p"; return 0; }
+	done
+	return 1
+}
 
 carrier=$(st_modem_mtu 2>/dev/null)
 case "$carrier" in ''|*[!0-9]*) carrier=0 ;; esac
 
 measured=0; method=""
+PING=$(find_df_ping)
 
-if ping_df_ok; then
+if [ -n "$PING" ]; then
 	# бинарный поиск самого большого DF-пакета, который проходит
 	method="ping"; _lo=$LO; _hi=$HI; _best=0
 	while [ "$_lo" -le "$_hi" ]; do
 		_mid=$(( (_lo + _hi) / 2 ))
-		if ping -M do -s $(( _mid - 28 )) -c1 -W2 $BIND "$HOST" >/dev/null 2>&1; then
+		if "$PING" -M do -s $(( _mid - 28 )) -c1 -W2 $BIND "$HOST" >/dev/null 2>&1; then
 			_best=$_mid; _lo=$(( _mid + 1 ))
 		else _hi=$(( _mid - 1 )); fi
 	done
