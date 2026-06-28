@@ -11,9 +11,14 @@ ST_SHARE="${ST_SHARE:-/usr/share/streamtune}"
 ST_PROC="${ST_PROC:-/proc}"
 . "$ST_SHARE/lib.sh"
 
+# Таймлайн: сперва наш СНИМОК dmesg, снятый на старте (init.d) — кольцевой буфер
+# живого dmesg на долго работающем роутере уже не содержит вех загрузки.
+BOOTDMESG="${ST_BOOT_DMESG:-/tmp/streamtune-boot.dmesg}"
 printf '{"boot":'
 if [ -n "${ST_DMESG_FILE:-}" ] && [ -f "$ST_DMESG_FILE" ]; then
 	awk -f "$ST_SHARE/boot.awk" < "$ST_DMESG_FILE"
+elif [ -s "$BOOTDMESG" ]; then
+	awk -f "$ST_SHARE/boot.awk" < "$BOOTDMESG"
 elif command -v dmesg >/dev/null 2>&1; then
 	dmesg 2>/dev/null | awk -f "$ST_SHARE/boot.awk"
 else
@@ -39,5 +44,7 @@ if [ -r "$ST_PROC/net/softnet_stat" ]; then
 	case "$snsqueeze" in -*) snsqueeze=0 ;; esac
 fi
 
-printf ',"sys":{"cpus":%s,"mem_total_kb":%s,"mem_free_kb":%s,"conntrack_count":%s,"conntrack_max":%s,"softnet_drop":%s,"softnet_squeeze":%s}}\n' \
-	"$cpus" "$mtot" "$mfree" "$ctc" "$ctm" "$sndrop" "$snsqueeze"
+up=$(awk '{print int($1)}' "$ST_PROC/uptime" 2>/dev/null); case "$up" in ''|*[!0-9]*) up=0 ;; esac
+
+printf ',"sys":{"cpus":%s,"mem_total_kb":%s,"mem_free_kb":%s,"conntrack_count":%s,"conntrack_max":%s,"softnet_drop":%s,"softnet_squeeze":%s,"uptime":%s}}\n' \
+	"$cpus" "$mtot" "$mfree" "$ctc" "$ctm" "$sndrop" "$snsqueeze" "$up"

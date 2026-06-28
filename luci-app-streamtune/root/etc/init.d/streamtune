@@ -19,6 +19,9 @@ start_service() {
 	if st_param_enabled nf_conntrack.hashsize && [ -w "$ST_SYSFS_HASHSIZE" ]; then
 		echo "$(st_hashsize)" > "$ST_SYSFS_HASHSIZE" 2>/dev/null
 	fi
+	# снимок dmesg для таймлайна загрузки (на старте буфер ещё содержит вехи загрузки;
+	# на долго работающем роутере живой dmesg их уже не содержит)
+	[ -s /tmp/streamtune-boot.dmesg ] || dmesg > /tmp/streamtune-boot.dmesg 2>/dev/null
 	procd_open_instance
 	procd_set_param command /bin/true
 	procd_close_instance

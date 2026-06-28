@@ -44,28 +44,8 @@ return view.extend({
 			return this.load().then(L.bind(this.renderBoot, this));
 		}, this), 10);
 
-		var tips = E('div', { 'class': 'st-card' }, [
-			E('div', { 'class': 'st-card-h' }, [
-				E('span', { 'class': 'st-card-ic' }, [ st.icon('info') ]),
-				E('div', { 'class': 'st-card-t' }, [
-					E('div', { 'class': 'st-card-title' }, _('Further optimization ideas')),
-					E('div', { 'class': 'st-card-desc' }, _('Device-specific tweaks that StreamTune does not apply automatically.'))
-				])
-			]),
-			E('div', { 'class': 'st-card-b' }, [
-				E('ul', { 'class': 'st-tips' }, [
-					E('li', {}, _('A router only forwards your phone’s streams — it is not the TCP endpoint. So TCP/buffer sysctls (tagged “router-only”) affect only the router’s own traffic, not the audio stream.')),
-					E('li', {}, _('Keep IPv6 enabled and the modem APN as IPV4V6: mobile carriers often use 464XLAT/CLAT, and disabling IPv6 can break connectivity.')),
-					E('li', {}, _('When several devices share the car link, install luci-app-sqm with cake-autorate (adaptive shaping for variable cellular bandwidth) — for a single audio stream it is not needed.')),
-					E('li', {}, _('In a moving vehicle do not hard-lock LTE bands — free handover keeps coverage continuous; add a modem keepalive/watchdog for stuck connections.')),
-					E('li', {}, _('“RX backlog drops / NAPI squeezes” above is informational: non-zero values mean the per-CPU packet queue or NAPI budget is saturating — the netdev_max_backlog / netdev_budget recommendations directly address that.'))
-				])
-			])
-		]);
-
 		return E('div', { 'class': 'st-wrap' }, [
-			E('div', { 'class': 'st-cards' }, [ this.bootBox, this.sysBox ]),
-			tips
+			E('div', { 'class': 'st-cards' }, [ this.bootBox, this.sysBox ])
 		]);
 	},
 
@@ -80,7 +60,10 @@ return view.extend({
 		/* --- таймлайн загрузки --- */
 		var inner;
 		if (!boot.available || !(boot.events || []).length) {
-			inner = E('div', { 'class': 'st-note' }, _('Boot log (dmesg) is not available on this device.'));
+			var uph = sys.uptime
+				? (Math.floor(sys.uptime / 3600) + ' ' + _('h') + ' ' + Math.floor((sys.uptime % 3600) / 60) + ' ' + _('min'))
+				: '—';
+			inner = E('div', { 'class': 'st-note' }, _('Boot timeline is captured at boot; the kernel ring buffer no longer holds the early-boot lines (uptime %s). Reboot once to populate it.').format(uph));
 		} else {
 			var total = boot.total || 0;
 			var rows = boot.events.map(function(e) {

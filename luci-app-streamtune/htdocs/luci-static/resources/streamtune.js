@@ -17,9 +17,9 @@ var callApply  = rpc.declare({
 	params: [ 'profile', 'param_off', 'wan_iface', 'mtu' ]
 });
 
-/* Порядок и метаданные категорий (тумблеров) */
-var CATS = [ 'net_buffers', 'low_latency', 'backlog', 'congestion',
-             'flow_offload', 'conntrack', 'irqbalance', 'disable_ipv6', 'mobile_lte' ];
+/* Порядок и метаданные категорий (тумблеров). Mobile LTE — первым. */
+var CATS = [ 'mobile_lte', 'net_buffers', 'low_latency', 'backlog', 'congestion',
+             'flow_offload', 'conntrack', 'irqbalance', 'disable_ipv6' ];
 
 /* Пресеты профилей: значения тумблеров категорий (lte_audio и home_wired
  * сейчас совпадают; различия — авто-MTU и WAN-интерфейс, оба автоопределяются) */
@@ -27,7 +27,7 @@ var PROFILE_PRESET = { net_buffers: 1, low_latency: 1, backlog: 0, congestion: 1
 	flow_offload: 0, flow_offload_hw: 0, conntrack: 1, irqbalance: 0,
 	disable_ipv6: 1, mobile_lte: 1 };
 var PROFILES = { lte_audio: PROFILE_PRESET, home_wired: PROFILE_PRESET };
-var PROFILE_NAMES = { lte_audio: _('Auto LTE'), home_wired: _('Home, wired') };
+var PROFILE_NAMES = { lte_audio: _('LTE'), home_wired: _('Wired') };
 
 /* Параметры, влияющие ТОЛЬКО на трафик самого роутера (не на форвардимый поток) */
 var ROUTER_ONLY = {

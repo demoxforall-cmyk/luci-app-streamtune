@@ -69,7 +69,7 @@ return view.extend({
 				E('h2', {}, [ st.icon('rocket'), _('Stream Optimizer') ]),
 				E('p', { 'class': 'st-head-desc' }, _('Tune the network stack for low-latency, low-jitter audio/video streaming. Pick a profile, toggle the parameters you want and apply.')),
 				E('div', { 'class': 'st-profile-row' }, [
-					E('span', { 'class': 'st-profile-label' }, _('Profile:')), seg
+					E('span', { 'class': 'st-profile-label' }, _('Internet profile:')), seg
 				]),
 				this.scoreLine,
 				this.hintBox,
@@ -187,7 +187,12 @@ return view.extend({
 
 		var body = E('div', { 'class': 'st-card-b' });
 
-		if (cat === 'congestion' && this.caps.bbr === 0) body.appendChild(pkgNote('kmod-tcp-bbr'));
+		/* версия BBR — внутри блока Congestion (логичнее, чем в шапке) */
+		if (cat === 'congestion') {
+			this.bbrInfo = E('div', { 'class': 'st-bbr-info' }, [ st.icon('gauge'), E('span', {}, _('BBR: %s').format(st.bbrText(this.caps))) ]);
+			body.appendChild(this.bbrInfo);
+			if (this.caps.bbr === 0) body.appendChild(pkgNote('kmod-tcp-bbr'));
+		}
 		if (cat === 'irqbalance' && this.caps.irqbalance === 0) body.appendChild(pkgNote('irqbalance'));
 
 		/* mobile LTE: поле WAN-интерфейса + кнопка пробы MTU */
@@ -199,7 +204,7 @@ return view.extend({
 			body.appendChild(E('div', { 'class': 'st-subopt' }, [
 				E('span', {}, _('WAN interface (blank = auto)')), wanIn
 			]));
-			this.probeResult = E('span', { 'class': 'st-sub-note' });
+			this.probeResult = E('span', { 'class': 'st-sub-note' }, _('optional — “Apply selected” determines and applies it automatically'));
 			body.appendChild(E('div', { 'class': 'st-subopt' }, [
 				E('button', { 'class': 'btn cbi-button-action',
 					'click': ui.createHandlerFn(this, 'handleProbe') },
@@ -248,18 +253,12 @@ return view.extend({
 
 		dom.content(this.gaugeBox, st.scoreGauge(data.score.good, data.score.total));
 		var pct = data.score.total > 0 ? Math.round(data.score.good / data.score.total * 100) : 0;
-		var bbrChip = (this.caps.bbr === 1)
-			? E('span', { 'class': 'st-pill2',
-				'title': this.caps.bbr_ksize
-					? _('Detected from tcp_bbr.ko size: %s B (modinfo is stripped on OpenWRT)').format(this.caps.bbr_ksize)
-					: _('Kernel BBR version') },
-				'BBR ' + st.bbrVersionLabel(this.caps.bbr_version))
-			: '';
 		dom.content(this.scoreLine, [
 			E('strong', {}, _('%d of %d recommendations met').format(data.score.good, data.score.total)),
-			bbrChip,
 			(pct === 100) ? E('span', { 'class': 'st-ok-tag' }, [ st.icon('check'), _('All set') ]) : ''
 		]);
+		/* версия BBR живёт в карточке Congestion — обновим её, если есть ссылка */
+		if (this.bbrInfo) dom.content(this.bbrInfo, [ st.icon('gauge'), E('span', {}, _('BBR: %s').format(st.bbrText(this.caps))) ]);
 		this.updateHint();
 
 		/* построить-или-обновить строки (самовосстановление, если первый load упал) */

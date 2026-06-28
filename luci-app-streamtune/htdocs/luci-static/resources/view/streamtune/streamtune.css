@@ -97,6 +97,9 @@
 /* ---------- sub-option ---------- */
 .st-subopt { display: flex; align-items: center; gap: 8px; padding: 8px 0 4px; font-size: 13px; }
 .st-sub-note { color: var(--st-mut); font-size: 12px; }
+/* строка версии BBR в карточке Congestion */
+.st-bbr-info { display: flex; align-items: center; gap: 8px; padding: 6px 0 4px; font-size: 13px; font-weight: 500; }
+.st-bbr-info .st-ico { width: 16px; height: 16px; flex: 0 0 auto; color: var(--st-accent); }
 
 /* ---------- param table ---------- */
 .st-table { width: 100%; border-collapse: collapse; font-size: 13px; }

@@ -508,3 +508,27 @@ msgstr "С учётом числа ядер: рекомендуется ВЫКЛ
 
 msgid "Full IPv6 off — every item changed is listed below: kernel stack, WAN IPv6, DHCPv6/RA/NDP per pool, ULA prefix and odhcpd. Risky in general (can break 464XLAT/CLAT on mobile); here clients are IPv4-only by design."
 msgstr "Полное выключение IPv6 — ниже перечислено всё, что меняется: стек ядра, IPv6 на WAN, DHCPv6/RA/NDP по каждому пулу, ULA-префикс и odhcpd. В целом рискованно (на сотовом может сломать 464XLAT/CLAT); здесь клиенты по замыслу только IPv4."
+
+msgid "Internet profile:"
+msgstr "Интернет-профиль:"
+
+msgid "LTE"
+msgstr "LTE"
+
+msgid "Wired"
+msgstr "Wired"
+
+msgid "BBR: %s"
+msgstr "BBR: %s"
+
+msgid "optional — “Apply selected” determines and applies it automatically"
+msgstr "необязательно — «Применить выбранное» само определит и применит"
+
+msgid "Boot timeline is captured at boot; the kernel ring buffer no longer holds the early-boot lines (uptime %s). Reboot once to populate it."
+msgstr "Хронология загрузки снимается на старте; кольцевой буфер ядра уже не содержит ранних строк загрузки (аптайм %s). Перезагрузите роутер один раз, чтобы заполнить её."
+
+msgid "h"
+msgstr "ч"
+
+msgid "min"
+msgstr "мин"
