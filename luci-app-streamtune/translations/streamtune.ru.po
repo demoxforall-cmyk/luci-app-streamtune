@@ -538,3 +538,45 @@ msgstr "Обзор"
 
 msgid "Diagnostics"
 msgstr "Диагностика"
+
+msgid "Kernel start"
+msgstr "Запуск ядра"
+
+msgid "Memory init"
+msgstr "Инициализация памяти"
+
+msgid "Rootfs mounted"
+msgstr "Смонтирован rootfs"
+
+msgid "Network link ready"
+msgstr "Сетевой линк готов"
+
+msgid "Kernel ready (init handover)"
+msgstr "Ядро готово (передача в init)"
+
+msgid "Userspace start"
+msgstr "Старт userspace"
+
+msgid "procd start"
+msgstr "Старт procd"
+
+msgid "System ready"
+msgstr "Система готова"
+
+msgid "Kernel boot phases parsed from dmesg — expand a phase to see its log."
+msgstr "Фазы загрузки ядра из dmesg — разверни фазу, чтобы увидеть её лог."
+
+msgid "s, boot to ready"
+msgstr "с, загрузка до готовности"
+
+msgid "click a phase to see what ran"
+msgstr "кликни фазу — увидишь, что выполнялось"
+
+msgid "+%d more lines"
+msgstr "+%d строк ещё"
+
+msgid "no kernel messages captured in this phase"
+msgstr "в этой фазе сообщений ядра не захвачено"
+
+msgid "Uptime"
+msgstr "Аптайм"
