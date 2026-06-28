@@ -45,10 +45,13 @@
 .st-gauge-sub { font-size: 12px; color: var(--st-mut); margin-top: 3px; }
 
 /* ---------- cards grid ---------- */
-.st-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+/* многоколоночная раскладка: карточки пакуются по своей высоте, без растяжки
+   до высоты ряда (так не возникает пустого места внизу низких карточек) */
+.st-cards { column-count: 2; column-gap: 16px; }
 .st-card {
 	border: 1px solid var(--st-line); border-radius: 14px; overflow: hidden;
 	background: var(--st-soft); transition: border-color .2s, box-shadow .2s;
+	break-inside: avoid; -webkit-column-break-inside: avoid; margin: 0 0 16px;
 }
 .st-card-on { border-color: color-mix(in srgb, var(--st-accent) 55%, transparent); }
 .st-card-on.st-card-risk { border-color: color-mix(in srgb, var(--st-bad) 55%, transparent); }
@@ -174,6 +177,6 @@
 
 /* ---------- responsive ---------- */
 @media (max-width: 920px) {
-	.st-cards { grid-template-columns: 1fr; }
+	.st-cards { column-count: 1; }
 	.st-head { flex-direction: column; align-items: flex-start; }
 }
